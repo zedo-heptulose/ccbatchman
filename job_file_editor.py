@@ -28,7 +28,9 @@ def get_orca_coordinates(filename):
     
 def mult_integer(integer):
     # Convert the matched string to an integer, double it, and return as string
+    print('mult_integer called')
     def multiply_re(match):
+        print(f're match group: {match.group(0)}')
         return str(int(int(match.group(0)) * int))
     return multiply_re
 
@@ -52,6 +54,7 @@ def change_sbatch_file(filename,flags):
             #replace problem lines with good lines
             if re.search(r'-t',line) and 'time' in flags:
                 line = re.sub(r'(\d+)(?:-)',mult_integer(2),line)
+                #want to switch to nodeless and mem-per-core
             elif re.search(r'--mem',line) and 'memory' in flags:
                 line = re.sub(r'(\d+)',mult_integer(1.6),line)
     # Open the file in write mode
@@ -60,8 +63,7 @@ def change_sbatch_file(filename,flags):
         f.writelines(lines)
         
         
-        
-        
+#debugged and works fine
 def replace_geometry(filename,coordinates):
     '''
     fixes failed geometry optimization
@@ -69,18 +71,17 @@ def replace_geometry(filename,coordinates):
     with open(filename,'r') as f:
         lines = f.readlines()
         
-    
     geom_start = -1
     geom_end = -1
     for index, line in enumerate(lines):
         if re.search(r'\*\s*XYZ',line):
             geom_start = index
-        if re.match(r'\s*\*\s*'):
+        if re.match(r'\s*\*\s*',line):
             geom_end = index
     if geom_start == -1 or geom_end == -1:
         raise ValueError('No Proper Coordinate Block in Input File')
     
-    new_lines = lines[0:geom_start] + coordinates + [' * \n\n']
+    new_lines = lines[0:geom_start+1] + coordinates + [' * \n\n']
     
     if len(lines) > geom_end + 1:
         new_lines += lines[geom_end+1:]
@@ -89,11 +90,10 @@ def replace_geometry(filename,coordinates):
         f.writelines(new_lines)
 
 
-
-def add_freq_restart(filename, flags):
+#bebugged and works fine
+def add_freq_restart(filename):
     '''
     '''
-    if type(flags) is not list: flags = [flags]
     
     with open(filename,'r') as f:
         lines=f.readlines()
@@ -103,24 +103,34 @@ def add_freq_restart(filename, flags):
     freq_block_start = -1
     
     for index, line in enumerate(lines):
-        if 'memory' in flags and re.search(r'%Maxcore',line,flag=re.I):
-            lines[index] = re.sub(r'\d+',mult_integer(1.4),line)
-        if re.search(r'%freq',line,flag=re.I):
+        freq_pattern = re.compile(r'%\s*freq',re.I)
+        if re.search(freq_pattern,line):
             freq_block_start = index
-        if re.search(r'restart\s+true'):
-            return True #handle this somehow. Means the job already failed.
-    
-    if freq_block_start != -1:
-        newlines = lines[:freq_block_start+1] + ['restart true'] + lines[freq_block_start+1:]
-    else:
-        newlines = lines[:1] + [r'% freq','  restart true','end'] + lines[1:]
         
+        if re.match(r'\s*restart\s+true\s*',line):
+            return True # no edit takes place if this is already here
+
+    if freq_block_start == -1:
+        newlines = lines[:1] + ['\n',r'%freq' + '\n','  restart true\n','end\n','\n'] + lines[1:]
+    else:
+        newlines = lines[:freq_block_start+1] + ['  restart true\n'] + lines[freq_block_start+1:]
+    
     with open(filename,'w') as f:
         f.writelines(newlines)
     return False #false for, "job has NOT failed here before"
 
-    #will need to debug these with real orca output files
 
+def increase_memory(filename, multiplier):
+    
+    with open(filename,'r') as f:
+        lines= f.readlines()
+        
+    print('in increase_memory')
+    maxcore_pattern = re.compile(r'%maxcore',re.IGNORECASE)
+    for index, line in enumerate(lines):
+        if  re.search(maxcore_pattern,line):
+            print('updating memory settings')
+            lines[index] = re.sub(r'(\d+)',str(int(int(re.search(r'(\d+)',line).group(0)) * multiplier)),line)
 
-
-    # seems to be everything necessary for the babysitter to do its work.
+    with open(filename,'w') as f:
+        f.writelines(lines)
