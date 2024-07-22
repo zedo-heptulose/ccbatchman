@@ -89,8 +89,19 @@ def replace_geometry(filename,coordinates):
     with open (filename,'w') as f:
         f.writelines(new_lines)
 
+def remove_opt_line(filename):
+    '''
+    '''
+    with open(filename,'r') as f:
+        lines=f.readlines()
+    
+    lines[0] = re.sub(r'OPT',r'',lines[0])
 
-#bebugged and works fine
+    with open(filename,'w') as f:
+        f.writelines(lines)
+
+
+#debugged and works fine
 def add_freq_restart(filename):
     '''
     '''
