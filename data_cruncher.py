@@ -23,10 +23,11 @@ def df_from_directory(directory, ruleset, file_substrings = None, not_substrings
 
     filenames = ds.find_filenames_substring_list(directory,file_substrings, not_substrings, recursive)
     data_dict = {}
+    print('looking for filenames')
     for filename in filenames:
         base_filename = os.path.basename(filename)
         chem_name = os.path.splitext(base_filename)[0]
-        
+        print(f'reading from {filename}')
         data_dict[chem_name] = fr.extract_data(filename, ruleset)
     return df_from_dicts(data_dict)
 
