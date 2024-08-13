@@ -67,19 +67,19 @@ def start_job(job_name):
     input files.
     '''
     #needs to be tested on the HPC
-    #this is in testing mode and is a dummy function for now
-    print(f'sbatch "./{job_name}/*.sh"')
-    #subprocess.run(f'sbatch "./{job_name}/*.sh"',shell=True)
+    # #this is in testing mode and is a dummy function for now
+    # print(f'sbatch "../{job_name}/*.sh"')
+    subprocess.run(f'sbatch *.sh',shell=True,cwd=f'../{job_name}/')
 
 
-# seems to work fine. 
-# shell permissions need to be tested live
-#for all of them, should save the old output file in a subdirectory.
-def save_old_out_files(job_name):
-    os.makedirs(f'./{job_name}/history/', exist_ok=True)
-    shutil.copy2(f'./{job_name}/{job_name}.out',f'./{job_name}/history/{job_name}_snapshot.out')
-    subprocess.run(f'mv ./{job_name}/slurm*.out ./{job_name}/history/slurm_history.out',shell=True)
-    pass
+# # seems to work fine. d
+# # shell permissions need to be tested live
+# #for all of them, should save the old output file in a subdirectory.
+# def save_old_out_files(job_name):
+#     os.makedirs(f'history/',cwd='../{job_name}/', exist_ok=True) #change others to reflect this
+#     shutil.copy2(f'../{job_name}/{job_name}.out',f'../{job_name}/history/{job_name}_snapshot.out')
+#     subprocess.run(f'mv ../{job_name}/slurm*.out .,/{job_name}/history/slurm_history.out',shell=True)
+#     pass
 
 
 
@@ -91,40 +91,40 @@ def clear_directory(job_name):
     '''
     #make sure no exception occurs if the files don't exist,
     #or at least handle it
-    subprocess.run(f'rm ./{job_name}/*.tmp',shell=True)
+    subprocess.run(f'rm *.tmp',cwd=f'../{job_name}/',shell=True)
 
 
 
 
 
-# seems to work fine. 
-def restart_geom(job_name):
-    '''
-    expects name of job, and true/false whether
-    it is a frequency job being restarted
-    '''
-    coords = jfe.get_orca_coordinates(f'./{job_name}/{job_name}.out')
-    jfe.replace_geometry(f'./{job_name}/{job_name}.inp', coords)
-    save_old_out_files(job_name)
-    start_job(job_name)
+# # seems to work fine. 
+# def restart_geom(job_name):
+#     '''
+#     expects name of job, and true/false whether
+#     it is a frequency job being restarted
+#     '''
+#     coords = jfe.get_orca_coordinates(f'./{job_name}/{job_name}.out')
+#     jfe.replace_geometry(f'./{job_name}/{job_name}.inp', coords)
+#     save_old_out_files(job_name)
+#     start_job(job_name)
 
 
 
 
-# seems to work fine. 
-def restart_freq(job_name):
-    jfe.remove_opt_line(f'./{job_name}/{job_name}.inp')
-    restart_geom(job_name)
-    #maybe delete the directory here...
+# # seems to work fine. 
+# def restart_freq(job_name):
+#     jfe.remove_opt_line(f'./{job_name}/{job_name}.inp')
+#     restart_geom(job_name)
+#     #maybe delete the directory here...
 
 
 
-# seems to work fine. 
-def restart_numfreq(job_name):
-    jfe.add_freq_restart(f'./{job_name}/{job_name}.inp')
-    restart_geom(job_name)
+# # seems to work fine. 
+# def restart_numfreq(job_name):
+#     jfe.add_freq_restart(f'./{job_name}/{job_name}.inp')
+#     restart_geom(job_name)
 
-    #I should be using RIJCOSX with B3LYP YEAH, NOW I AM
+#     #I should be using RIJCOSX with B3LYP YEAH, NOW I AM
 
 
 # seems to work fine. 
@@ -138,7 +138,7 @@ def read_state(job_name):
     # both failed works, only geom worked works, both completed works
     # both running works, both running geom completed works
     # call it good
-    list_filenames = os.listdir(f'./{job_name}/')
+    list_filenames = os.listdir(f'../{job_name}/')
     slurm_pattern = re.compile(r'slurm.+\.out',re.IGNORECASE)
     try:
         slurm_filename = [file for file in list_filenames if re.search(slurm_pattern, file)][0]
@@ -147,10 +147,14 @@ def read_state(job_name):
 
     #should return a 1D dataframe
     #relevant column keys are completion_success and geometry_success
-    job_status_df = dc.df_from_directory(f'./{job_name}/','ORCAmeta.rules',['.out'],['slurm'],recursive=False)
+    job_status_df = dc.df_from_directory(f'../{job_name}/','ORCAmeta.rules',['.out'],['slurm'],recursive=False)
     print(job_status_df)
-    with open(f'./{job_name}/{slurm_filename}','r') as slurmy:
+    with open(f'../{job_name}/{slurm_filename}','r') as slurmy:
         content = slurmy.read()
+        
+        
+        #TODO: PLEASE FIX THIS
+        
         if not content.strip(): #this is a really bad solution.
                                 #this will break. find a more general way.
             if job_status_df['geometry_success'].iloc[0] == True:
@@ -260,7 +264,7 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
     
 def check_finished(ledger):
     
-    finished_criteria = ['completed','twice_failed']
+    finished_criteria = ['completed','failed']
     if ledger['job_status'].isin(finished_criteria).all():
         return True
     else:
@@ -272,7 +276,7 @@ if __name__ == '__main__':
         ledger = read_ledger('__ledger__.csv',sep='|')
     except:
         #batchfile is for now a textfile with a list of (job_name\n)'s
-        ledger = read_batchfile('batchfile.csv',sep='|')
+        ledger = read_batchfile('batchfile.csv')
 
     #variables, besides the state in the ledger:
     #(should read config or the batch file for this.)
@@ -287,7 +291,7 @@ if __name__ == '__main__':
         
         ledger.to_csv('__ledger__.csv',sep='|')
         
-        num_jobs_running = update_state(ledger)
+        num_jobs_running = update_state(ledger,num_jobs_running)
         
         num_jobs_running = act_on_state(ledger,num_jobs_running)
         
