@@ -41,7 +41,7 @@ def read_batchfile(filename):
     with some config commands allowed as well.
     creates a ledger from the batchfile
     '''
-    batch = pd.read_csv(f'./{filename}',delimiter=';')
+    batch = pd.read_csv(f'./{filename}',delimiter='|')
     ledger = pd.DataFrame() 
     ledger['job_name'] = batch.iloc[:,0]
     ledger['job_type'] = batch.iloc[:,1]
@@ -173,21 +173,22 @@ def update_state(df,num_jobs_running):
         df.at[index, 'job_status'] = updated_job_status
         df.at[index, 'geometry_status'] = updated_geometry_status
 
-    # Update job_status for rows where job_status is 'restarted'
-    restarted_mask = df['job_status'] == 'restarted'
-    for index in df[restarted_mask].index:
-        updated_job_status, updated_geometry_status = read_state(df.at[index, 'job_name'])
-        if updated_job_status == 'failed':
-            df.at[index, 'job_status'] = 'failed_twice'
+    # # Update job_status for rows where job_status is 'restarted'
+    # restarted_mask = df['job_status'] == 'restarted'
+    # for index in df[restarted_mask].index:
+    #     updated_job_status, updated_geometry_status = read_state(df.at[index, 'job_name'])
+    #     if updated_job_status == 'failed':
+    #         df.at[index, 'job_status'] = 'failed_twice'
 
     # Update job counter for completed jobs
     completed_jobs = ledger[ledger['job_status'] == 'completed']
     num_jobs_running -= len(completed_jobs)
-    for job_name in completed_jobs['job_name']:
-        print(f'Job {job_name} completed.')
-    print(f'{num_jobs_running} jobs running')
+    # for job_name in completed_jobs['job_name']:
+    #     print(f'Job {job_name} completed.')
+    # print(f'{num_jobs_running} jobs running')
 
     return num_jobs_running
+
 
 
 def act_on_state(ledger, num_jobs_running):
@@ -271,7 +272,7 @@ if __name__ == '__main__':
         ledger = read_ledger('__ledger__.csv',sep='|')
     except:
         #batchfile is for now a textfile with a list of (job_name\n)'s
-        ledger = read_batchfile('batchfile.csv')
+        ledger = read_batchfile('batchfile.csv',sep='|')
 
     #variables, besides the state in the ledger:
     #(should read config or the batch file for this.)
