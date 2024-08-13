@@ -281,7 +281,7 @@ if __name__ == '__main__':
         
         ledger.to_csv('__ledger__.csv',sep='|')
         
-        complete = check_complete
+        complete = check_finished(ledger)
 
         
         time.sleep(100)
