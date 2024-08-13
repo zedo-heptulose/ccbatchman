@@ -163,6 +163,9 @@ def read_state(job_name):
             return tuple(results)
 
 def update_state(df,num_jobs_running):
+    '''
+    decrements counter based on number of completed jobs
+    '''
     # Update job_status and geometry_status for rows where job_status is 'running'
     running_mask = df['job_status'] == 'running'
     for index in df[running_mask].index:
@@ -188,19 +191,21 @@ def update_state(df,num_jobs_running):
 
 
 def act_on_state(ledger, num_jobs_running):
-
+    '''
+    clears directories of failed jobs, decrements counter.
+    '''
     # Define patterns for matching job types
     geom_pattern = re.compile(r'opt', re.IGNORECASE)
     freq_pattern = re.compile(r'freq', re.IGNORECASE)
     numfreq_pattern = re.compile(r'numfreq', re.IGNORECASE)
 
-    # Kill twice failed jobs
-    failed_twice_jobs = ledger[ledger['job_status'] == 'failed_twice']
-    num_jobs_running -= len(failed_twice_jobs)
-    for job_name in failed_twice_jobs['job_name']:
-        clear_directory(job_name)
-        print(f'Job {job_name} failed.')
-    print(f'{num_jobs_running} jobs running')
+    # # Kill twice failed jobs
+    # failed_twice_jobs = ledger[ledger['job_status'] == 'failed_twice']
+    # num_jobs_running -= len(failed_twice_jobs)
+    # for job_name in failed_twice_jobs['job_name']:
+    #     clear_directory(job_name)
+    #     print(f'Job {job_name} failed.')
+    # print(f'{num_jobs_running} jobs running')
 
     # Handle failed jobs with specific conditions
     failed_jobs = ledger[ledger['job_status'] == 'failed']
@@ -209,24 +214,30 @@ def act_on_state(ledger, num_jobs_running):
         job_type = row['job_type']
         geom_status = row['geometry_status']
         
-        if geom_pattern.search(job_type) and geom_status == 'failed':
-            restart_geom(job_name)
-            ledger.at[index, 'geometry_status'] = 'restarted'
-            ledger.at[index, 'job_status'] = 'restarted'
+        # this should only be here if restart functionality is not being used.
+        clear_directory(job_name)
+        num_jobs_running -= 1
+        print(f'Job {job_name} failed.')
+        print(f'{num_jobs_running} jobs still running')
         
-        elif numfreq_pattern.search(job_type):
-            restart_numfreq(job_name)
-            ledger.at[index, 'job_status'] = 'restarted'
+        # if geom_pattern.search(job_type) and geom_status == 'failed':
+        #     restart_geom(job_name)
+        #     ledger.at[index, 'geometry_status'] = 'restarted'
+        #     ledger.at[index, 'job_status'] = 'restarted'
+        
+        # elif numfreq_pattern.search(job_type):
+        #     restart_numfreq(job_name)
+        #     ledger.at[index, 'job_status'] = 'restarted'
 
-        elif freq_pattern.search(job_type):
-            restart_freq(job_name)
-            ledger.at[index, 'job_status'] = 'restarted'
+        # elif freq_pattern.search(job_type):
+        #     restart_freq(job_name)
+        #     ledger.at[index, 'job_status'] = 'restarted'
         
-        else:  # If an SPE or property job fails, kill it
-            clear_directory(job_name)
-            num_jobs_running -= 1
-            print(f'Job {job_name} failed.')
-            print(f'{num_jobs_running} jobs still running')
+        # else:  # If an SPE or property job fails, kill it
+        #     clear_directory(job_name)
+        #     num_jobs_running -= 1
+        #     print(f'Job {job_name} failed.')
+        #     print(f'{num_jobs_running} jobs still running')
 
         #TODO: HANDLE OOM KILL
 
@@ -272,6 +283,9 @@ if __name__ == '__main__':
         
         #store in-memory ledger to file
         #update ledger
+        
+        ledger.to_csv('__ledger__.csv',sep='|')
+        
         num_jobs_running = update_state(ledger)
         
         num_jobs_running = act_on_state(ledger,num_jobs_running)
@@ -283,7 +297,6 @@ if __name__ == '__main__':
         
         complete = check_finished(ledger)
 
-        
         time.sleep(100)
         
     print()
