@@ -53,7 +53,7 @@ def read_batchfile(filename):
 def read_ledger(filename):
     #for now the ledger is stored loose in the directory; make a separate folder if this gets
     #unmanageable
-    return pd.read_csv(f'./{filename}',delimiter=';')
+    return pd.read_csv(f'./{filename}',delimiter='|')
     
 # seems to work fine.
 def write_ledger(ledger, filename):
@@ -141,6 +141,8 @@ def read_state(job_name):
     list_filenames = os.listdir(f'../{job_name}/')
     slurm_pattern = re.compile(r'slurm.+\.out',re.IGNORECASE)
     try:
+        #TODO: address this
+        #this would read from an old slurm file, and you could never tell
         slurm_filename = [file for file in list_filenames if re.search(slurm_pattern, file)][0]
     except:
         return 'error','error'
@@ -152,9 +154,12 @@ def read_state(job_name):
     with open(f'../{job_name}/{slurm_filename}','r') as slurmy:
         content = slurmy.read()
         
-        
+        #TODO: this should capture slurm output to be robust
         #TODO: PLEASE FIX THIS
-        
+        #brother what is this logic
+        results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
+        if results[0] == True:
+            return 'completed','completed'
         if not content.strip(): #this is a really bad solution.
                                 #this will break. find a more general way.
             if job_status_df['geometry_success'].iloc[0] == True:
@@ -170,6 +175,7 @@ def update_state(df,num_jobs_running):
     '''
     decrements counter based on number of completed jobs
     '''
+    
     # Update job_status and geometry_status for rows where job_status is 'running'
     running_mask = df['job_status'] == 'running'
     for index in df[running_mask].index:
@@ -185,12 +191,12 @@ def update_state(df,num_jobs_running):
     #         df.at[index, 'job_status'] = 'failed_twice'
 
     # Update job counter for completed jobs
-    completed_jobs = ledger[ledger['job_status'] == 'completed']
-    num_jobs_running -= len(completed_jobs)
+    completed_jobs = df[df['job_status'] == 'completed']
     # for job_name in completed_jobs['job_name']:
     #     print(f'Job {job_name} completed.')
     # print(f'{num_jobs_running} jobs running')
 
+    num_jobs_running = len(df[df['job_status'] == 'running'])
     return num_jobs_running
 
 
@@ -221,7 +227,6 @@ def act_on_state(ledger, num_jobs_running):
         
         # this should only be here if restart functionality is not being used.
         clear_directory(job_name)
-        num_jobs_running -= 1
         print(f'Job {job_name} failed.')
         print(f'{num_jobs_running} jobs still running')
         
@@ -264,7 +269,7 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
     
 def check_finished(ledger):
     
-    finished_criteria = ['completed','failed']
+    finished_criteria = ['completed','failed','error']
     if ledger['job_status'].isin(finished_criteria).all():
         return True
     else:
@@ -273,7 +278,7 @@ def check_finished(ledger):
 if __name__ == '__main__':
     complete = False
     try:
-        ledger = read_ledger('__ledger__.csv',sep='|')
+        ledger = read_ledger('__ledger__.csv')
     except:
         #batchfile is for now a textfile with a list of (job_name\n)'s
         ledger = read_batchfile('batchfile.csv')
@@ -293,16 +298,18 @@ if __name__ == '__main__':
         
         num_jobs_running = update_state(ledger,num_jobs_running)
         
+        #need to create a job that WILL fail to test this
         num_jobs_running = act_on_state(ledger,num_jobs_running)
         
         num_jobs_running = queue_new_jobs(ledger,num_jobs_running,max_jobs_running)
 
+        num_jobs_running = update_state(ledger,num_jobs_running)
         
         ledger.to_csv('__ledger__.csv',sep='|')
         
         complete = check_finished(ledger)
 
-        time.sleep(100)
+        time.sleep(10)
         
     print()
     print('Batch job finished!')
