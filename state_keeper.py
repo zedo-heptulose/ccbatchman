@@ -1,23 +1,4 @@
-#read and write to ledger file
-
-#read from batch file
-
-#read from orca files to check state
-
-#main function loop with a sleep timer, carries out these instructions as needed
-
-#ignore memory for now, just have it set a limit of how many run at once
-
-#would then need to group together jobs of like size. We can figure out more later
-
-
 #ledger file is a csv; uses a pd.DataFrame in memory operations
-
-#assumes jobs each in their own subdirectory below this script
-
-#for now, only one layer
-
-import pandas as pd
 import subprocess
 import job_file_editor as jfe
 import os 
@@ -60,7 +41,6 @@ def write_ledger(ledger, filename):
     ledger.to_csv(filename, sep=';', index=False)
 
 
-############needs to be tested live######
 def start_job(job_name):
     '''
     assumes this script is placed in a directory, containing directories containing jobs and
@@ -71,19 +51,6 @@ def start_job(job_name):
     # print(f'sbatch "../{job_name}/*.sh"')
     subprocess.run(f'sbatch *.sh',shell=True,cwd=f'../{job_name}/')
 
-
-# # seems to work fine. d
-# # shell permissions need to be tested live
-# #for all of them, should save the old output file in a subdirectory.
-# def save_old_out_files(job_name):
-#     os.makedirs(f'history/',cwd='../{job_name}/', exist_ok=True) #change others to reflect this
-#     shutil.copy2(f'../{job_name}/{job_name}.out',f'../{job_name}/history/{job_name}_snapshot.out')
-#     subprocess.run(f'mv ../{job_name}/slurm*.out .,/{job_name}/history/slurm_history.out',shell=True)
-#     pass
-
-
-
-############needs to be tested live######
 def clear_directory(job_name):
     '''
     deletes everything in a directory except the orbitals,
@@ -135,9 +102,6 @@ def read_state(job_name):
     returns the job_state and geometry_state
     '''
     #fix that it just expects an empty slurm file
-    # both failed works, only geom worked works, both completed works
-    # both running works, both running geom completed works
-    # call it good
     list_filenames = os.listdir(f'../{job_name}/')
     slurm_pattern = re.compile(r'slurm.+\.out',re.IGNORECASE)
     try:
@@ -145,7 +109,8 @@ def read_state(job_name):
         #this would read from an old slurm file, and you could never tell
         slurm_filename = [file for file in list_filenames if re.search(slurm_pattern, file)][0]
     except:
-        return 'error','error'
+        return 'not_started','not_started'
+    # this returned 'error','error', so if a job didn't start before the update loop it was killed.
 
     #should return a 1D dataframe
     #relevant column keys are completion_success and geometry_success
