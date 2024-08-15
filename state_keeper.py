@@ -42,14 +42,14 @@ def read_ledger(filename):
     
 # seems to work fine.
 def write_ledger(ledger, filename):
-    ledger.to_csv(filename, sep=';', index=False)
+    ledger.to_csv(filename, sep='|', index=False)
 
 
 def start_job(job_name):
     #TODO: address that sometimes slurm submissions fail
     # ex, too many jobs currently running, memory quota, etc
     #MAKE SURE UTF8 IS RIGHT FOR THIS
-    processdata = subprocess.run(f'sbatch *.sh',shell=True,cwd=f'../{job_name}/',capture_output=True)
+    processdata = subprocess.run(f'sbatch *.sh',shell=True,cwd=f'../{job_name}/',stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
     output = processdata.stdout.decode('utf-8')
     #TODO: delete this print statement when done using it
     print(f'output:{output}')
@@ -102,9 +102,6 @@ def clear_directory(job_name):
 #     jfe.add_freq_restart(f'./{job_name}/{job_name}.inp')
 #     restart_geom(job_name)
 
-#     #I should be using RIJCOSX with B3LYP YEAH, NOW I AM
-
-
 # seems to work fine. 
 def read_state(job_name):
     '''
@@ -137,7 +134,14 @@ def read_state(job_name):
         #TODO: this should capture slurm output to be robust
         #TODO: PLEASE FIX THIS
         #brother what is this logic
-        results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
+        try:
+            results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
+        except:
+            print("#########################\nBAD READ\n###########################")
+            return 'error','error'
+            #this is the ONLY way to get 'error' as a status, is if files can't be read
+            #I think I just abused my login's resources and the read failed, I don't 
+            #think there's anything wrong with the code
         if results[0] == True:
             return 'completed','completed'
         if not content.strip(): #this is a really bad solution.
@@ -155,10 +159,11 @@ def update_state(df,num_jobs_running):
     '''
     decrements counter based on number of completed jobs
     '''
-    
+    #TODO: fix bug that causes crash here 
     # Update job_status and geometry_status for rows where job_status is 'running'
     running_mask = df['job_status'] == 'running'
     for index in df[running_mask].index:
+        #the offending line vvv 
         updated_job_status, updated_geometry_status = read_state(df.at[index, 'job_name'])
         df.at[index, 'job_status'] = updated_job_status
         df.at[index, 'geometry_status'] = updated_geometry_status
@@ -253,10 +258,12 @@ if __name__ == '__main__':
     complete = False
     try:
         ledger = read_ledger('__ledger__.csv')
+        print('reading old ledger on startup')
     except:
         #batchfile is for now a textfile with a list of (job_name\n)'s
         ledger = read_batchfile('batchfile.csv')
-
+        print('reading batchfile on startup')
+    
     #variables, besides the state in the ledger:
     #(should read config or the batch file for this.)
     #(for now, it's hardcoded)
@@ -269,6 +276,7 @@ if __name__ == '__main__':
         #update ledger
         num_jobs_running = update_state(ledger,num_jobs_running)
         print('writing ledger')
+        print(ledger)
         ledger.to_csv('__ledger__.csv',sep='|')
         print('state updated')
         #need to create a job that WILL fail to test this
