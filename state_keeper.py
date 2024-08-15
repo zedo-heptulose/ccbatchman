@@ -1,4 +1,6 @@
 #ledger file is a csv; uses a pd.DataFrame in memory operations
+import re
+import pandas as pd
 import subprocess
 import job_file_editor as jfe
 import os 
@@ -10,7 +12,7 @@ import data_cruncher as dc
 # ok simple enough lol
 #write ledger, read ledger, start job, restart job
 
-# job name ; job_status ; job_type ; geometry_status
+# job_name ; job_status ; job_type ; geometry_status ; job_id
 # status options : not started, running, failed, restarted, failed_twice, completed 
 # type options : 
 
@@ -28,6 +30,8 @@ def read_batchfile(filename):
     ledger['job_type'] = batch.iloc[:,1]
     ledger['job_status'] = ['not_started' for i in range (len(batch))]
     ledger['geometry_status']=['not_started' for i in range (len(batch))]
+    ledger['job_id']=[-1 for i in range (len(batch))]
+    
     return ledger
 
 # seems to work fine.
@@ -42,14 +46,21 @@ def write_ledger(ledger, filename):
 
 
 def start_job(job_name):
-    '''
-    assumes this script is placed in a directory, containing directories containing jobs and
-    input files.
-    '''
-    #needs to be tested on the HPC
-    # #this is in testing mode and is a dummy function for now
-    # print(f'sbatch "../{job_name}/*.sh"')
-    subprocess.run(f'sbatch *.sh',shell=True,cwd=f'../{job_name}/')
+    #TODO: address that sometimes slurm submissions fail
+    # ex, too many jobs currently running, memory quota, etc
+    #MAKE SURE UTF8 IS RIGHT FOR THIS
+    processdata = subprocess.run(f'sbatch *.sh',shell=True,cwd=f'../{job_name}/',capture_output=True)
+    output = processdata.stdout.decode('utf-8')
+    #TODO: delete this print statement when done using it
+    print(f'output:{output}')
+    try:
+        job_id = int(re.search('\d+',output).group(0))
+        return job_id
+    except:
+        return -2
+    #TODO: parent process should acknowledge an error if this is recieved
+
+
 
 def clear_directory(job_name):
     '''
@@ -109,11 +120,15 @@ def read_state(job_name):
         #this would read from an old slurm file, and you could never tell
         slurm_filename = [file for file in list_filenames if re.search(slurm_pattern, file)][0]
     except:
-        return 'not_started','not_started'
+        return 'running','running'
     # this returned 'error','error', so if a job didn't start before the update loop it was killed.
-
+    # not started isn't really a solution. This needs to be either 'running' or 'pending'
+    # all jobs that get submitted product a slurm output file.
+    # so for one to never be made, it plain didn't submit properly.... an error I've never run into and probably don't need to worry about for now.
+    # TODO: check this in the future
+    
     #should return a 1D dataframe
-    #relevant column keys are completion_success and geometry_success
+    #relevant column keys are copletion_success and geometry_success
     job_status_df = dc.df_from_directory(f'../{job_name}/','ORCAmeta.rules',['.out'],['slurm'],recursive=False)
     print(job_status_df)
     with open(f'../{job_name}/{slurm_filename}','r') as slurmy:
@@ -175,13 +190,6 @@ def act_on_state(ledger, num_jobs_running):
     freq_pattern = re.compile(r'freq', re.IGNORECASE)
     numfreq_pattern = re.compile(r'numfreq', re.IGNORECASE)
 
-    # # Kill twice failed jobs
-    # failed_twice_jobs = ledger[ledger['job_status'] == 'failed_twice']
-    # num_jobs_running -= len(failed_twice_jobs)
-    # for job_name in failed_twice_jobs['job_name']:
-    #     clear_directory(job_name)
-    #     print(f'Job {job_name} failed.')
-    # print(f'{num_jobs_running} jobs running')
 
     # Handle failed jobs with specific conditions
     failed_jobs = ledger[ledger['job_status'] == 'failed']
@@ -194,6 +202,8 @@ def act_on_state(ledger, num_jobs_running):
         clear_directory(job_name)
         print(f'Job {job_name} failed.')
         print(f'{num_jobs_running} jobs still running')
+
+    return num_jobs_running
         
         # if geom_pattern.search(job_type) and geom_status == 'failed':
         #     restart_geom(job_name)
@@ -214,9 +224,7 @@ def act_on_state(ledger, num_jobs_running):
         #     print(f'Job {job_name} failed.')
         #     print(f'{num_jobs_running} jobs still running')
 
-        #TODO: HANDLE OOM KILL
 
-    return num_jobs_running
 
 def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
     job_mask = ledger['job_status'] == 'not_started'
@@ -226,7 +234,8 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
             return num_jobs_running
         if ledger.at[index,'job_status'] == 'not_started':
             job_to_run = ledger.at[index,'job_name']
-            start_job(job_to_run)
+            #TODO: make sure this works
+            ledger.at[index,'job_id'] = start_job(job_to_run)
             num_jobs_running += 1
             ledger.at[index,'job_status'] = 'running'
     
@@ -258,22 +267,23 @@ if __name__ == '__main__':
         
         #store in-memory ledger to file
         #update ledger
-        
-        ledger.to_csv('__ledger__.csv',sep='|')
-        
         num_jobs_running = update_state(ledger,num_jobs_running)
-        
+        print('writing ledger')
+        ledger.to_csv('__ledger__.csv',sep='|')
+        print('state updated')
         #need to create a job that WILL fail to test this
+        print('acting on measured state (clearing failed job temp files for now)')
         num_jobs_running = act_on_state(ledger,num_jobs_running)
-        
+        print('queueing new jobs, if necessary')
         num_jobs_running = queue_new_jobs(ledger,num_jobs_running,max_jobs_running)
-
+        
         num_jobs_running = update_state(ledger,num_jobs_running)
-        
+        print('state updated')
         ledger.to_csv('__ledger__.csv',sep='|')
-        
+        print('ledger written')
         complete = check_finished(ledger)
-
+        print(f'completion status: {complete}')
+        print('sleeping')
         time.sleep(10)
         
     print()
