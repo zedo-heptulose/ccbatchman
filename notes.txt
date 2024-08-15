@@ -1,0 +1,90 @@
+COMMANDS MUST EXECUTE IN JOB
+WORKING DIRECTORY
+
+SOLUTION:
+
+subprocess cwd kwarg
+
+for now, separating utilities
+for restarting jobs from utils for 
+queueing jobs
+
+also should scancel 'failed' jobs just in carries
+
+and why does it keep submitting failed jobs?
+
+BUGS:
+(addressed)
+---nothing gets submitted after first pass,
+because everything is error,error and not
+not_started,not_started
+---looks like finished finished isn't acknowledged
+---failed jobs get repeatedly restarted
+--perfectly fine jobs got killed (hasn't been replicated)
+(this just... fixed itself?)
+
+
+
+(to be addressed)
+--doesn't kill failed jobs yet
+--submits too many jobs.
+--jobs are randomly failing now?
+(didn't have this problem yesterday...)
+
+--should kill error state jobs
+to prevent unpredictable behavior
+--should delete or move old slurm files
+to prevent unpredictable behavior
+
+
+CAUSES:
+
+--never ends if there's an 'error' present
+
+..this implies it could not find a slurm file?
+
+try making a job with an already existing slurm file
+(doesn't cause immediate death, still a problem)
+
+
+
+doesn't kill failed jobs
+wait, why did these fail?
+very weird behavior.
+why am I getting error,error?
+
+it didn't regard them as having failed, either.
+
+
+(see if Ev will call now, but keep working)
+
+ADDRESSING:
+fix the 'error' issue first. seems to cause the most problems...
+then make sure that 'error' jobs get killed.
+hypothesis: this happens when the jobs don't get submitted in time?
+
+
+
+FIXED:
+jobs now execute in proper directories
+job not started issue is gone 
+
+failed jobs get repeatedly resubmitted
+(this seems to have fixed itself with the 'error','error' issue)
+
+
+
+
+... how can I tell then?
+
+BETTER SOLUTION:
+store slurm id for each job in ledger
+capture slurm status output to tell if success
+
+CAP SOLUTION:
+if completion success, you're done!
+just check first. keep all else the same.
+
+both seem to be addressed
+let's try this
+
