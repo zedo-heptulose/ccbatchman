@@ -23,17 +23,13 @@ not_started,not_started
 --perfectly fine jobs got killed (hasn't been replicated)
 (this just... fixed itself?)
 
+--jobs are randomly failing now?
+--submits too many jobs. (was wrongly marking unstarted jobs as error finishes, but not killing them)
 
 
 (to be addressed)
 --doesn't kill failed jobs yet
---submits too many jobs.
---jobs are randomly failing now?
-(didn't have this problem yesterday...)
-
 --should kill error state jobs
-to prevent unpredictable behavior
---should delete or move old slurm files
 to prevent unpredictable behavior
 
 
@@ -41,29 +37,14 @@ CAUSES:
 
 --never ends if there's an 'error' present
 
-..this implies it could not find a slurm file?
-
-try making a job with an already existing slurm file
-(doesn't cause immediate death, still a problem)
-
-
-
-doesn't kill failed jobs
-wait, why did these fail?
-very weird behavior.
-why am I getting error,error?
-
-it didn't regard them as having failed, either.
-
-
-(see if Ev will call now, but keep working)
 
 ADDRESSING:
-fix the 'error' issue first. seems to cause the most problems...
-then make sure that 'error' jobs get killed.
-hypothesis: this happens when the jobs don't get submitted in time?
-
-
+--doesn't kill failed jobs yet
+--not very tolerant to out or slurm files already existing
+*delete (or move) old slurm files when starting a job
+*store the number of the (only) slurm output file after submitting 
+*keep it in the ledger
+...could also use this to query the scheduler for the status of the job, which is WAY more robust than what you're doing now
 
 FIXED:
 jobs now execute in proper directories
