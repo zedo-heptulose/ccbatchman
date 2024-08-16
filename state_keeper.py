@@ -112,7 +112,7 @@ def read_state(job_name, job_id):
     
     #capture slurm output here, use it in the business logic
     processdata = subprocess.run(f'squeue --job {job_id}',shell=True,cwd=f'../{job_name}/',stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-    output = processdata.stdout.readlines()
+    output = processdata.stdout.decode('utf-8')
     
     #the fifth capture group (\b.+\b) will be the job status
     #R is running
@@ -127,7 +127,7 @@ def read_state(job_name, job_id):
         if re.search('error:',output):
             in_progress = False
         else:
-            captureline = output[1] 
+            captureline = output.splitlines()[1] 
             status = re.search(r'(?:\S+\s+){4}(\S+)',captureline).group(1)  
     except:
         print('error in capturing squeue output')
