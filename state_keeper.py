@@ -121,14 +121,14 @@ def read_state(job_name, job_id):
     #need to recognize bad job.
     
     in_progress = True
-    status = "N/A"
+    slurm_status = "N/A"
 
     try:
         if re.search('error:',output):
             in_progress = False
         else:
             captureline = output.splitlines()[1] 
-            status = re.search(r'(?:\S+\s+){4}(\S+)',captureline).group(1)  
+            slurm_status = re.search(r'(?:\S+\s+){4}(\S+)',captureline).group(1)  
     except:
         print('error in capturing squeue output')
         return 'error','error'
@@ -137,20 +137,21 @@ def read_state(job_name, job_id):
 
     job_status_df = dc.df_from_directory(f'../{job_name}/','ORCAmeta.rules',['.out'],['slurm'],recursive=False)
     #print(job_status_df)
-    
-    try:
-        results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
-    except:
-        print("#########################\nBAD READ\n###########################")
-        return 'error','error'
-        #this is the ONLY way to get 'error' as a status, is if files can't be read
-    
+    print(f'status:{slurm_status}')   
+    if not slurm_status == 'PD':
+        try:
+            results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
+        except:
+            print("#########################\nBAD READ\n###########################")
+            return 'error','error'
+            #this is the ONLY way to get 'error' as a status, is if files can't be read
+        
     if results[0] == True:
         return 'completed','completed'
 
     if in_progress:
         #this will cause an error in some edge case but oh well
-        if status == 'R' or status == 'PD':
+        if slurm_status == 'R' or slurm_status == 'PD':
             if job_status_df['geometry_success'].iloc[0] == True:
                 return 'running','completed' #opt considered 'running' even if it finished
             else:
