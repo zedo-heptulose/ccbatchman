@@ -135,27 +135,27 @@ def read_state(job_name, job_id):
         #I lied, error error can also come from this
         #not sure if job should die for this, but for the time being it will
 
-    job_status_df = dc.df_from_directory(f'../{job_name}/','ORCAmeta.rules',['.out'],['slurm'],recursive=False)
     #print(job_status_df)
     print(f'status:{slurm_status}')   
-    if not slurm_status == 'PD':
-        try:
-            results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
-        except:
-            print("#########################\nBAD READ\n###########################")
-            return 'error','error'
-            #this is the ONLY way to get 'error' as a status, is if files can't be read
-        
-    if in_progress:
-        #this will cause an error in some edge case but oh well
-        if slurm_status == 'R' or slurm_status == 'PD':
-            if job_status_df['geometry_success'].iloc[0] == True:
-                return 'running','completed' #opt considered 'running' even if it finished
-            else:
-                return 'running','running'
+    if slurm_status == 'PD':
+        #TODO: implement a pending status for the ledger
+        return 'running','running'
+
+    try:
+      job_status_df = dc.df_from_directory(f'../{job_name}/','ORCAmeta.rules',['.out'],['slurm'],recursive=False)
+      results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
+    except:
+        print("#########################\nBAD READ\n###########################")
+        return 'error','error'
+        #this is the ONLY way to get 'error' as a status, is if files can't be read
+    
+    if in_progress and slurm_status == 'R':
+        if job_status_df['geometry_success'].iloc[0] == True:
+            return 'running','completed' #opt considered 'running' even if it finished
+        else:
+            return 'running','running'
 
     else:
-        results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
         results = ['completed' if b else 'failed' for b in results]
         return tuple(results)
 
