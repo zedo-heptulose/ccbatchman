@@ -28,10 +28,14 @@ not_started,not_started
 
 
 (to be addressed)
+--randomly crashed... seems to have crashed with the helper parsing function. I'll see if it can be replicated
+--should test status based on slurm commands not parsing the slurm output, which is unpredictable
 --doesn't kill failed jobs yet
 --should kill error state jobs
 to prevent unpredictable behavior
 
+--(ORCA/HPC) job just randomly failed...
+but the real problem, the script didn't recognize it as having failed.
 
 CAUSES:
 
