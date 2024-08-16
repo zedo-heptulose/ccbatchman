@@ -103,57 +103,61 @@ def clear_directory(job_name):
 #     restart_geom(job_name)
 
 # seems to work fine. 
-def read_state(job_name):
+def read_state(job_name, job_id):
     '''
     The heavy hitter state reading function
     accepts a job_name
     returns the job_state and geometry_state
     '''
-    #fix that it just expects an empty slurm file
-    list_filenames = os.listdir(f'../{job_name}/')
-    slurm_pattern = re.compile(r'slurm.+\.out',re.IGNORECASE)
-    try:
-        #TODO: address this
-        #this would read from an old slurm file, and you could never tell
-        slurm_filename = [file for file in list_filenames if re.search(slurm_pattern, file)][0]
-    except:
-        return 'running','running'
-    # this returned 'error','error', so if a job didn't start before the update loop it was killed.
-    # not started isn't really a solution. This needs to be either 'running' or 'pending'
-    # all jobs that get submitted product a slurm output file.
-    # so for one to never be made, it plain didn't submit properly.... an error I've never run into and probably don't need to worry about for now.
-    # TODO: check this in the future
     
-    #should return a 1D dataframe
-    #relevant column keys are copletion_success and geometry_success
+    #capture slurm output here, use it in the business logic
+    processdata = subprocess.run(f'squeue --job {job_id}',shell=True,cwd=f'../{job_name}/',stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+    output = processdata.stdout.decode('utf-8')
+    #the fifth capture group (\b.+\b) will be the job status
+    #R is running
+    #PD is pending
+    #that's good enough for now
+    #need to recognize bad job.
+    
+    in_progress = True
+    status = "N/A"
+
+    try:
+        if re.search('error:',output):
+            in_progress = False
+        else:
+            status = re.search(r'(?:\S+\s+){4}(\S+)').group(1)  
+    except:
+        print('error in capturing squeue output')
+        return 'error','error'
+        #I lied, error error can also come from this
+        #not sure if job should die for this, but for the time being it will
+
     job_status_df = dc.df_from_directory(f'../{job_name}/','ORCAmeta.rules',['.out'],['slurm'],recursive=False)
-    print(job_status_df)
-    with open(f'../{job_name}/{slurm_filename}','r') as slurmy:
-        content = slurmy.read()
-        
-        #TODO: this should capture slurm output to be robust
-        #TODO: PLEASE FIX THIS
-        #brother what is this logic
-        try:
-            results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
-        except:
-            print("#########################\nBAD READ\n###########################")
-            return 'error','error'
-            #this is the ONLY way to get 'error' as a status, is if files can't be read
-            #I think I just abused my login's resources and the read failed, I don't 
-            #think there's anything wrong with the code
-        if results[0] == True:
-            return 'completed','completed'
-        if not content.strip(): #this is a really bad solution.
-                                #this will break. find a more general way.
+    #print(job_status_df)
+    
+    try:
+        results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
+    except:
+        print("#########################\nBAD READ\n###########################")
+        return 'error','error'
+        #this is the ONLY way to get 'error' as a status, is if files can't be read
+    
+    if results[0] == True:
+        return 'completed','completed'
+
+    if in_progress:
+        #this will cause an error in some edge case but oh well
+        if status == 'R' or status == 'PD':
             if job_status_df['geometry_success'].iloc[0] == True:
                 return 'running','completed' #opt considered 'running' even if it finished
             else:
                 return 'running','running'
-        else:
-            results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
-            results = ['completed' if b else 'failed' for b in results]
-            return tuple(results)
+
+    else:
+        results = (job_status_df['completion_success'].iloc[0], job_status_df['geometry_success'].iloc[0])
+        results = ['completed' if b else 'failed' for b in results]
+        return tuple(results)
 
 def update_state(df,num_jobs_running):
     '''
@@ -164,7 +168,7 @@ def update_state(df,num_jobs_running):
     running_mask = df['job_status'] == 'running'
     for index in df[running_mask].index:
         #the offending line vvv 
-        updated_job_status, updated_geometry_status = read_state(df.at[index, 'job_name'])
+        updated_job_status, updated_geometry_status = read_state(df.at[index, 'job_name'],df.at[index,'job_id'])
         df.at[index, 'job_status'] = updated_job_status
         df.at[index, 'geometry_status'] = updated_geometry_status
 
