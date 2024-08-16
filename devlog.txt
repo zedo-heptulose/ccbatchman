@@ -1,0 +1,68 @@
+8-15
+
+reflection on the day's work
+
+general thoughts
+this was very nice! I had a lot fun with this today, even though it was sort of frustrating.
+I enjoy using vim a lot. I'm not accustomed to having many commands in an editor, so it's nice.
+It's satisfying to use and makes programming more fun, so I'm going to take the time to learn it properly.
+
+I would rather work to exhaustion on a script than spend an hour wrangling numbers on excel by hand.
+My working memory is getting larger for using these,
+and my focus/endurance is getting larger as well.
+I am also getting better at typing- I make few errors now and type much more quickly.
+
+I am worried about getting this done and in a good state soon, because Mike needs the jobs done urgently.
+
+
+what I accomplished
+I debugged the script, so that it is less of a pain to use.
+I also refactored it to use slurm commands instead of parsing data, so it should be more reliable
+(though I am leaving off on it being somewhat buggy)
+
+
+what I learned
+I learned some vim commands.
+dd to delete a line
+dw to delete a word
+0 is the start of a line
+$ is the end
+v is the visual selector
+:%s/{}/{}/g will replace all occurrences of a pattern in the whole file
+the g keyword is for everything on a line, % for all lines
+> and < for indent and de-indent in visual selector
+>> and << outside the visual selector
+d to cut
+y to copy
+P to paste
+G for end of the file
+gg for top of the file
+/ for finding a word
+n and N for cycling through occurrences
+
+I also learned, or reinforced rather, that weird errors are a part of life when programming and one should be open minded when debugging.
+And don't be afraid to just turn it off and on again.
+
+I learned that to identify errors, including more messages in programs is good. If a program fails, it should tell you where and why it failed.
+If some aspect of a program starts doing something weird, make it give you a play by play and figure out why.
+
+Debugging is a vital part of programming and it is a skill that needs to be practiced as much as writing code does.
+
+I learned how to capture output from shell commands in a python program using the subprocess module, which is very powerful.
+I learned that errors are common with this and it must be made fault tolerant if it is to be used.
+
+I also realized that it's important to build on a firm foundation.
+
+I got some practice using Git at the commandline.
+
+
+what's next
+tomorrow: set up a couple vim macros.
+ideally, finish debugging this. It should work properly.
+Make it more fault tolerant.
+
+Add dependent job functionality.
+
+
+Final words:
+Today was a good day. I got a lot done and learned a lot. I will benefit from some rest now.

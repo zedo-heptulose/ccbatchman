@@ -26,13 +26,33 @@ not_started,not_started
 --jobs are randomly failing now?
 --submits too many jobs. (was wrongly marking unstarted jobs as error finishes, but not killing them)
 
+--should test status based on slurm commands not parsing the slurm output, which is unpredictable
+fixed, to great applause
+
+--randomly crashed... seems to have crashed with the helper parsing function. I'll see if it can be replicated
+this was caused by an I/O error occasioned by me eating all my HPC memory. I implemented a try-except block where this happened too, p. sure
+
+
+
+--script doesn't recognize failed jobs sometimes?
+(this will probably not be an issue now that I'm not parsing anymore)
+
 
 (to be addressed)
---randomly crashed... seems to have crashed with the helper parsing function. I'll see if it can be replicated
---should test status based on slurm commands not parsing the slurm output, which is unpredictable
+
+TOP PRIORITY
+--capture errors happen OFTEN, apparently, so a job shouldn't die after one capture error,
+it should try again a few times
+--this will be UNUSABLE without fixing this.
+
+LOW PRIORITY
 --doesn't kill failed jobs yet
 --should kill error state jobs
 to prevent unpredictable behavior
+
+
+--job that once failed now presents error instead?
+("error in capturing squeue output" when this happened.)
 
 --(ORCA/HPC) job just randomly failed...
 but the real problem, the script didn't recognize it as having failed.
@@ -51,6 +71,8 @@ ADDRESSING:
 ...could also use this to query the scheduler for the status of the job, which is WAY more robust than what you're doing now
 
 FIXED:
+
+--should test status based on slurm commands not parsing the slurm output, which is unpredictable
 jobs now execute in proper directories
 job not started issue is gone 
 
