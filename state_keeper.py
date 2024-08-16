@@ -146,9 +146,6 @@ def read_state(job_name, job_id):
             return 'error','error'
             #this is the ONLY way to get 'error' as a status, is if files can't be read
         
-    if results[0] == True:
-        return 'completed','completed'
-
     if in_progress:
         #this will cause an error in some edge case but oh well
         if slurm_status == 'R' or slurm_status == 'PD':
