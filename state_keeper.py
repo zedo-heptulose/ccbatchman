@@ -243,19 +243,25 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
         if ledger.at[index,'job_status'] == 'not_started':
             dependency = ledger.at[index,'depends_on']
             if dependency:
-                dependency_data = ledger[ledger['job_name'] == dependency].iloc[0]
-                dependency_completion = dependency_data['job_status']
-                
-                #TODO: make this more general
-                if depenency_completion == 'completed':
-                    #coordinate moving helper function is activated here, before starting the job.
-                    job_name = ledger.at[index,'job_name']
-                    coords = jfe.get_orca_coordinates(f'../{dependency}/{dependency}.out')
-                    jfe.replace_geometry(f'../{job_name}/{job_name}.inp',coords)
+                #TODO: ADDRESS THIS.
+                #this would have it so that, if you misspelled a dependency, the next job would just up and start without it. which is not desired...
+                filtered_ledger = ledger[ledger['job_name'] == dependency]
+                if not filtered_ledger.empty: 
+                    dependency_data = filtered_ledger.iloc[0]
+                    dependency_completion = dependency_data['job_status']
+                    
+                    #TODO: make this more general
+                    if dependency_completion == 'completed':
+                        #coordinate moving helper function is activated here, before starting the job.
+                        job_name = ledger.at[index,'job_name']
+                        coords = jfe.get_orca_coordinates(f'../{dependency}/{dependency}.out')
+                        jfe.replace_geometry(f'../{job_name}/{job_name}.inp',coords)
+                    else:
+                        continue
                 else:
                     continue
             job_to_run = ledger.at[index,'job_name']
-            #TODO: make sure this works
+            
             ledger.at[index,'job_id'] = start_job(job_to_run)
             num_jobs_running += 1
             ledger.at[index,'job_status'] = 'running'
