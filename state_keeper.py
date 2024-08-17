@@ -200,23 +200,17 @@ def act_on_state(ledger, num_jobs_running):
     clears directories of failed jobs, decrements counter.
     '''
     # Define patterns for matching job types
-    geom_pattern = re.compile(r'opt', re.IGNORECASE)
-    freq_pattern = re.compile(r'freq', re.IGNORECASE)
-    numfreq_pattern = re.compile(r'numfreq', re.IGNORECASE)
-
-
+    #geom_pattern = re.compile(r'opt', re.IGNORECASE)
+    #freq_pattern = re.compile(r'freq', re.IGNORECASE)
+    #numfreq_pattern = re.compile(r'numfreq', re.IGNORECASE)
     # Handle failed jobs with specific conditions
     failed_jobs = ledger[ledger['job_status'] == 'failed']
     for index, row in failed_jobs.iterrows():
         job_name = row['job_name']
-        job_type = row['job_type']
-        geom_status = row['geometry_status']
-        
-        # this should only be here if restart functionality is not being used.
+        #geom_status = row['geometry_status']
         clear_directory(job_name)
-        print(f'Job {job_name} failed.')
-        print(f'{num_jobs_running} jobs still running')
-
+        #print(f'Job {job_name} failed.')
+        #print(f'{num_jobs_running} jobs still running')
     return num_jobs_running
         
         # if geom_pattern.search(job_type) and geom_status == 'failed':
@@ -251,9 +245,15 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
             if dependency:
                 dependency_data = ledger[ledger['job_name'] == dependency].iloc[0]
                 dependency_completion = dependency_data['job_status']
-                if dependency_completion != 'completed':
-                    continue
                 
+                #TODO: make this more general
+                if depenency_completion == 'completed':
+                    #coordinate moving helper function is activated here, before starting the job.
+                    job_name = ledger.at[index,'job_name']
+                    coords = jfe.get_orca_coordinates(f'../{dependency}/{dependency}.out')
+                    jfe.replace_geometry(f'../{job_name}/{job_name}.inp',coords)
+                else:
+                    continue
             job_to_run = ledger.at[index,'job_name']
             #TODO: make sure this works
             ledger.at[index,'job_id'] = start_job(job_to_run)
@@ -261,9 +261,10 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
             ledger.at[index,'job_status'] = 'running'
     
     return num_jobs_running
-    
-def check_finished(ledger):
-    
+   
+
+
+def check_finished(ledger):    
     finished_criteria = ['completed','failed','error']
     if ledger['job_status'].isin(finished_criteria).all():
         return True
