@@ -121,7 +121,7 @@ def read_state(job_name, job_id):
     in_progress = True
     slurm_status = "N/A"
 
-    for attempt in range(5)    
+    for attempt in range(5):    
         try:
             processdata = subprocess.run(f'squeue --job {job_id}',shell=True,cwd=f'../{job_name}/',stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             output = processdata.stdout.decode('utf-8')
@@ -131,6 +131,7 @@ def read_state(job_name, job_id):
             else:
                 captureline = output.splitlines()[1] 
                 slurm_status = re.search(r'(?:\S+\s+){4}(\S+)',captureline).group(1)  
+            break
         except:
             print("Bad capture of squeue response")
 
