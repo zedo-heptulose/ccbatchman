@@ -249,9 +249,9 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
         if ledger.at[index,'job_status'] == 'not_started':
             dependency = ledger.at[index,'depends_on']
             if dependency:
-                dependency_data = ledger[ledger['job_name'] == dependency]
+                dependency_data = ledger[ledger['job_name'] == dependency].iloc[0]
                 dependency_completion = dependency_data['job_status']
-                if not dependency_completion:
+                if dependency_completion != 'completed':
                     continue
                 
             job_to_run = ledger.at[index,'job_name']
