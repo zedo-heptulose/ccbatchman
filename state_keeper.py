@@ -121,8 +121,7 @@ def read_state(job_name, job_id):
     in_progress = True
     slurm_status = "N/A"
 
-    attempts = 0
-    while attempts < 5:
+    for attempt in range(5)    
         try:
             processdata = subprocess.run(f'squeue --job {job_id}',shell=True,cwd=f'../{job_name}/',stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
             output = processdata.stdout.decode('utf-8')
@@ -132,12 +131,11 @@ def read_state(job_name, job_id):
             else:
                 captureline = output.splitlines()[1] 
                 slurm_status = re.search(r'(?:\S+\s+){4}(\S+)',captureline).group(1)  
-    except:
-        attempts += 1
-        print("Bad capture of squeue response")
+        except:
+            print("Bad capture of squeue response")
 
-        #I lied, error error can also come from this
-        #not sure if job should die for this, but for the time being it will
+            #I lied, error error can also come from this
+            #not sure if job should die for this, but for the time being it will
 
     #print(job_status_df)
     print(f'status:{slurm_status}')   
@@ -173,8 +171,9 @@ def update_state(df,num_jobs_running):
     for index in df[running_mask].index:
         #the offending line vvv 
         updated_job_status, updated_geometry_status = read_state(df.at[index, 'job_name'],df.at[index,'job_id'])
-        df.at[index, 'job_status'] = updated_job_status
-        df.at[index, 'geometry_status'] = updated_geometry_status
+        if not updated_job_status == 'error':
+            df.at[index, 'job_status'] = updated_job_status
+            df.at[index, 'geometry_status'] = updated_geometry_status
 
     # # Update job_status for rows where job_status is 'restarted'
     # restarted_mask = df['job_status'] == 'restarted'
