@@ -45,6 +45,8 @@ TOP PRIORITY
 it should try again a few times
 --this will be UNUSABLE without fixing this.
 
+--Regards succeeded jobs as 'error' for some reason.
+
 LOW PRIORITY
 --doesn't kill failed jobs yet
 --should kill error state jobs
