@@ -27,7 +27,8 @@ def read_batchfile(filename):
     batch = pd.read_csv(f'./{filename}',delimiter='|')
     ledger = pd.DataFrame() 
     ledger['job_name'] = batch.iloc[:,0]
-    ledger['job_type'] = batch.iloc[:,1]
+    #ledger['job_type'] = batch.iloc[:,1]
+    ledger['depends_on'] = batch.iloc[:,1].fillna('')
     ledger['job_status'] = ['not_started' for i in range (len(batch))]
     ledger['geometry_status']=['not_started' for i in range (len(batch))]
     ledger['job_id']=[-1 for i in range (len(batch))]
@@ -246,6 +247,13 @@ def queue_new_jobs(ledger,num_jobs_running,max_jobs_running):
         if (num_jobs_running >= max_jobs_running):
             return num_jobs_running
         if ledger.at[index,'job_status'] == 'not_started':
+            dependency = ledger.at[index,'depends_on']
+            if dependency:
+                dependency_data = ledger[ledger['job_name'] == dependency]
+                dependency_completion = dependency_data['job_status']
+                if dependency_completion is false:
+                    continue
+                
             job_to_run = ledger.at[index,'job_name']
             #TODO: make sure this works
             ledger.at[index,'job_id'] = start_job(job_to_run)
