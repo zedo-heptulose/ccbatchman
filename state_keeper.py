@@ -300,7 +300,7 @@ if __name__ == '__main__':
         num_jobs_running = update_state(ledger,num_jobs_running)
         print('writing ledger')
         print(ledger)
-        ledger.to_csv('__ledger__.csv',sep='|')
+        ledger.to_csv('__ledger__.csv',sep='|',index=False)
         print('state updated')
         #need to create a job that WILL fail to test this
         print('acting on measured state (clearing failed job temp files for now)')
@@ -310,7 +310,6 @@ if __name__ == '__main__':
         
         num_jobs_running = update_state(ledger,num_jobs_running)
         print('state updated')
-        ledger.to_csv('__ledger__.csv',sep='|')
         print('ledger written')
         complete = check_finished(ledger)
         print(f'completion status: {complete}')
