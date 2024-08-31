@@ -1,0 +1,100 @@
+COMMANDS MUST EXECUTE IN JOB
+WORKING DIRECTORY
+
+SOLUTION:
+
+subprocess cwd kwarg
+
+for now, separating utilities
+for restarting jobs from utils for 
+queueing jobs
+
+also should scancel 'failed' jobs just in carries
+
+and why does it keep submitting failed jobs?
+
+BUGS:
+(addressed)
+---nothing gets submitted after first pass,
+because everything is error,error and not
+not_started,not_started
+---looks like finished finished isn't acknowledged
+---failed jobs get repeatedly restarted
+--perfectly fine jobs got killed (hasn't been replicated)
+(this just... fixed itself?)
+
+--jobs are randomly failing now?
+--submits too many jobs. (was wrongly marking unstarted jobs as error finishes, but not killing them)
+
+--should test status based on slurm commands not parsing the slurm output, which is unpredictable
+fixed, to great applause
+
+--randomly crashed... seems to have crashed with the helper parsing function. I'll see if it can be replicated
+this was caused by an I/O error occasioned by me eating all my HPC memory. I implemented a try-except block where this happened too, p. sure
+
+
+
+--script doesn't recognize failed jobs sometimes?
+(this will probably not be an issue now that I'm not parsing anymore)
+
+--capture errors happen OFTEN, apparently, so a job shouldn't die after one capture error,
+it should try again a few times
+--this will be UNUSABLE without fixing this.
+
+--Regards succeeded jobs as 'error' for some reason.
+
+(to be addressed)
+
+TOP PRIORITY
+
+LOW PRIORITY
+--doesn't kill failed jobs yet
+--should kill error state jobs
+to prevent unpredictable behavior
+
+--has trouble starting up after failing for some reason:wq
+
+--job that once failed now presents error instead?
+("error in capturing squeue output" when this happened.)
+
+--(ORCA/HPC) job just randomly failed...
+but the real problem, the script didn't recognize it as having failed.
+
+CAUSES:
+
+--never ends if there's an 'error' present
+
+
+ADDRESSING:
+--doesn't kill failed jobs yet
+--not very tolerant to out or slurm files already existing
+*delete (or move) old slurm files when starting a job
+*store the number of the (only) slurm output file after submitting 
+*keep it in the ledger
+...could also use this to query the scheduler for the status of the job, which is WAY more robust than what you're doing now
+
+FIXED:
+
+--should test status based on slurm commands not parsing the slurm output, which is unpredictable
+jobs now execute in proper directories
+job not started issue is gone 
+
+failed jobs get repeatedly resubmitted
+(this seems to have fixed itself with the 'error','error' issue)
+
+
+
+
+... how can I tell then?
+
+BETTER SOLUTION:
+store slurm id for each job in ledger
+capture slurm status output to tell if success
+
+CAP SOLUTION:
+if completion success, you're done!
+just check first. keep all else the same.
+
+both seem to be addressed
+let's try this
+
