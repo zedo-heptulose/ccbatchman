@@ -1,4 +1,6 @@
 import re
+import os
+
 
 # this looks pretty solid.
 def get_orca_coordinates(filename):
@@ -145,3 +147,56 @@ def increase_memory(filename, multiplier):
 
     with open(filename,'w') as f:
         f.writelines(lines)
+
+
+
+def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.'):
+    '''
+    expects a list of rules,
+    which are pairs of arguments passed to re.sub
+    and applied to all filenames and the contents of the whole file
+    
+    obviously this can go wrong if you sub something like '.xyz',
+    so don't be stupid about it
+
+    note also that this uses regular expressions by default.
+    '''
+    #TODO: tolerate appended '/' or lack thereof on dir arguments.
+    #for now, assume there will be no trailing slash.
+    existpath = f'{existing_dir}/{jobname}/{jobname}'
+    extensions = ['.sh','.inp']
+
+    if len(rules) == 0:
+        raise ValueError('Cannot call copy_change_name without rules')
+    
+    new_jobname = jobname
+    for rule in rules:
+        if len(rule) != 2:
+            raise ValueError('Rules for job_file_editor.copy_change_name() must be length-2 tuples or lists')
+        if rule[0] == '--append':
+            new_jobname = jobname + rule[1]
+        else:
+            pattern = re.compile(rule[0])
+            replace = rule[1]
+            new_jobname = re.sub(pattern,replace,new_jobname)
+
+    newpath = f'{destination_dir}/{new_jobname}/{new_jobname}'
+    newdirpath = f'{destination_dir}/{new_jobname}'
+    if not os.path.exists(newdirpath):
+        os.makedirs(newdirpath)
+
+    for extension in extensions:
+        with open(existpath + extension,'r') as old_file:
+            lines = old_file.readlines()
+            newlines = []
+            for line in lines:
+                new_line = re.sub(jobname,new_jobname,line)
+                newlines.append(new_line)
+
+            with open(newpath + extension,'w') as new_file:
+                new_file.writelines(newlines)
+
+
+            
+    
+
