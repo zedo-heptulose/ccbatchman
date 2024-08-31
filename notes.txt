@@ -37,21 +37,22 @@ this was caused by an I/O error occasioned by me eating all my HPC memory. I imp
 --script doesn't recognize failed jobs sometimes?
 (this will probably not be an issue now that I'm not parsing anymore)
 
-
-(to be addressed)
-
-TOP PRIORITY
 --capture errors happen OFTEN, apparently, so a job shouldn't die after one capture error,
 it should try again a few times
 --this will be UNUSABLE without fixing this.
 
 --Regards succeeded jobs as 'error' for some reason.
 
+(to be addressed)
+
+TOP PRIORITY
+
 LOW PRIORITY
 --doesn't kill failed jobs yet
 --should kill error state jobs
 to prevent unpredictable behavior
 
+--has trouble starting up after failing for some reason:wq
 
 --job that once failed now presents error instead?
 ("error in capturing squeue output" when this happened.)
