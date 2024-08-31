@@ -240,3 +240,40 @@ def strip_keywords(filename,*args):
 
     with open(filename,'w') as new_version:
         new_version.writelines(new_lines)
+
+def add_keywords(filename,*args):
+    '''
+    This function is used to add commands starting with '!'
+    the ! operator is implicit here, so just include the command.
+    '''
+    with open(filename,'r') as old_version:
+        lines=old_version.readlines()
+    new_lines = []
+    commands_end_index = -1
+    for index, line in enumerate(lines):
+        if re.match('\s*!',line):
+            commands_end_index = index
+    if commands_end_index == -1:
+        raise ValueError('Invalid ORCA File Format')
+    new_lines = []
+    new_lines += lines[:commands_end_index+1]
+    for command in args:
+        new_lines.append(f'! {command} \n')
+    new_lines += lines[commands_end_index+1:]
+
+    with open(filename,'w') as new_version:
+        new_version.writelines(new_lines)
+        
+
+def tddft_from_finished_jobs(old_dir,new_dir,search=''):
+    job_dir_list = os.listdir(old_dir)
+    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
+        copy_change_name(jobname,[('--append','_tddft')],old_dir,new_dir)
+    
+    new_job_dir_list = os.listdir(new_dir)
+    for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
+        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
+        add_tddft_block(new_path)
+        strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b')
+        add_keywords(new_path,'TightSCF')
+
