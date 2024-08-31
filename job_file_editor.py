@@ -197,6 +197,46 @@ def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.'):
                 new_file.writelines(newlines)
 
 
-            
-    
+def add_tddft_block(filename):
+    '''
+    '''
+    #TODO: get rid of this entirely. There is a better, more general way.
+    with open(filename,'r') as old_version:
+        lines = old_version.readlines()
+        insert_index = -1
+        coordinate_pattern = re.compile(r'\s*\*\s*XYZ',re.I)
+        tddft_pattern = re.compile(r'%\s*tddft',re.I)
+        for index, line in enumerate(lines):
+            if re.search(coordinate_pattern,line):
+                insert_index = index
+            elif re.search(tddft_pattern,line):
+                print(f'file {filename} already contains tddft block')
+                return 
 
+        if insert_index == -1:
+            raise ValueError('Bad Orca File Format, Needs Coordinates')
+        
+        new_lines = []
+        new_lines += lines[:insert_index]
+        new_lines += [
+                '%tddft\n',
+                '  nroots = 50\n',
+                '  maxdim = 5\n',
+                'end\n',
+                ]
+        new_lines += lines[insert_index:]
+
+        with open(filename,'w') as new_version:
+            new_version.writelines(new_lines)
+
+def strip_keywords(filename,*args):
+    with open(filename,'r') as old_version:
+        lines=old_version.readlines()
+    new_lines = []
+    for line in lines:
+        for keyword in args:
+            line = re.sub(keyword,'',line)
+        new_lines.append(line)
+
+    with open(filename,'w') as new_version:
+        new_version.writelines(new_lines)
