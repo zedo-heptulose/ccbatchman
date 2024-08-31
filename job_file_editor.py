@@ -150,7 +150,7 @@ def increase_memory(filename, multiplier):
 
 
 
-def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.'):
+def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.',change_coords=True):
     '''
     expects a list of rules,
     which are pairs of arguments passed to re.sub
@@ -196,6 +196,9 @@ def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.'):
             with open(newpath + extension,'w') as new_file:
                 new_file.writelines(newlines)
 
+    if change_coords:
+        coords = get_orca_coordinates(f'{existpath}.out')
+        replace_geometry(f'{newpath}.inp',coords)
 
 def add_tddft_block(filename):
     '''
@@ -272,8 +275,11 @@ def tddft_from_finished_jobs(old_dir,new_dir,search=''):
     
     new_job_dir_list = os.listdir(new_dir)
     for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
+        old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
         new_path = f'{new_dir}/{jobname}/{jobname}.inp'
         add_tddft_block(new_path)
         strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b')
         add_keywords(new_path,'TightSCF')
+        
+
 
