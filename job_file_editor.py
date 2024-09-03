@@ -1,6 +1,6 @@
 import re
 import os
-
+import shutil
 
 # this looks pretty solid.
 def get_orca_coordinates(filename):
@@ -199,6 +199,26 @@ def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.',change_c
     if change_coords:
         coords = get_orca_coordinates(f'{existpath}.out')
         replace_geometry(f'{newpath}.inp',coords)
+
+def sort_into_directories(directory,extension,sh_filename):
+    files = os.listdir(directory)
+    files = [file for file in files if file.endswith(extension)]
+    for file in files:
+        jobname = os.path.basename(file).split('.')[0]
+        os.mkdir(f'./{jobname}')
+        shutil.copyfile(f'./{directory}/{file}',f'./{jobname}/{file}')
+        #now get the shell script ready
+        with open(sh_filename,'r') as script:
+            lines = script.readlines()
+            new_lines = []
+            for line in lines:
+                new_line = re.sub(r'\<job_name\>',jobname,line)
+                new_lines.append(new_line)
+        
+            with open(f'./{jobname}/{jobname}.sh','w') as scr_copy:
+                scr_copy.writelines(new_lines)
+            
+        
 
 def add_tddft_block(filename):
     '''
