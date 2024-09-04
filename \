@@ -252,26 +252,6 @@ def add_tddft_block(filename):
         with open(filename,'w') as new_version:
             new_version.writelines(new_lines)
 
-def add_block(filename,add_lines):
-    with open(filename,'r') as old_version:
-        lines = old_version.readlines()
-        insert_index = -1
-        coordinate_pattern = re.compile(r'\s*\*\s*XYZ',re.I)
-        for index, line in enumerate(lines):
-            if re.search(coordinate_pattern,line):
-                insert_index = index
-
-        if insert_index == -1:
-            raise ValueError('Bad Orca File Format, Needs Coordinates')
-        
-        new_lines = []
-        new_lines += lines[:insert_index]
-        new_lines += add_lines
-        new_lines += lines[insert_index:]
-
-        with open(filename,'w') as new_version:
-            new_version.writelines(new_lines)
-
 def strip_keywords(filename,*args):
     with open(filename,'r') as old_version:
         lines=old_version.readlines()
@@ -320,33 +300,17 @@ def tddft_from_finished_jobs(old_dir,new_dir,search=''):
         add_tddft_block(new_path)
         strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b')
         add_keywords(new_path,'TightSCF')
-
-
-    
-def singlepoint_from_finished_jobs(old_dir,new_dir,search=''):
+        
+def orbital_analysis(old_dir,new_dir,search='',extension='uno'):
     job_dir_list = os.listdir(old_dir)
     for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
-        copy_change_name(jobname,[('--append','_singlepoint')],old_dir,new_dir)
-    
-    new_job_dir_list = os.listdir(new_dir)
+        copy_change_name(jobname,[('--append',f'_{extension}_analysis')],old_dir_new_dir)
+    new-job_dir_list = os.listdir(new_dir)
     for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
         old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
         new_path = f'{new_dir}/{jobname}/{jobname}.inp'
-        strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b')
+        #only want to keep basis set, literally nothing else
+        #basis set and orbitals and brokensym keyword
+        #need to read basis from old calculation. maybe parse this first?
 
-
-
-def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
-    job_dir_list = os.listdir(old_dir)
-    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
-        copy_change_name(jobname,[('--append','_uno-analysis')],old_dir,new_dir)
-    
-    new_job_dir_list = os.listdir(new_dir)
-    for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
-        old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
-        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
-        strip_keywords(new_path,r'\bUKS\b',r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b',
-                r'\bRIJCOSX\b',r'\bAUTOAUX\b',f'\\b{functional}\\b')
-        add_keywords(new_path,'Normalprint noiter MOREAD')
-        add_block(new_path,[f'%moinp "{jobname}.uno"\n'])
 
