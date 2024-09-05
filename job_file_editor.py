@@ -337,10 +337,11 @@ def singlepoint_from_finished_jobs(old_dir,new_dir,search=''):
 
 
 def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
+    #this is a brutal hack
     job_dir_list = os.listdir(old_dir)
     for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
         copy_change_name(jobname,[('--append','_uno-analysis')],old_dir,new_dir)
-    
+        shutil.copyfile(f'./{old_dir}/{jobname}/{jobname}.uno',f'./{new_dir}/{jobname}_uno-analysis/{jobname}_uno-analysis.uno') 
     new_job_dir_list = os.listdir(new_dir)
     for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
         old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
@@ -349,4 +350,3 @@ def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
                 r'\bRIJCOSX\b',r'\bAUTOAUX\b',f'\\b{functional}\\b')
         add_keywords(new_path,'Normalprint noiter MOREAD')
         add_block(new_path,[f'%moinp "{jobname}.uno"\n'])
-
