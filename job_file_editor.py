@@ -334,7 +334,17 @@ def singlepoint_from_finished_jobs(old_dir,new_dir,search=''):
         new_path = f'{new_dir}/{jobname}/{jobname}.inp'
         strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b')
 
-
+#these should be factories, calling a function that does all this...
+def frequencies_from_finished_jobs(old_dir,new_dir,seach=''):
+    job_dir_list = os.listdir(old_dir)
+    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
+        copy_change_name(jobname,[('--append','_freq'),('opt','')],old_dir,new_dir)
+    new_job_dir_list = os.listdir(new_dir)
+    for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
+        old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
+        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
+        strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b')
+        add_keywords(new_path,'FREQ')
 
 def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
     #this is a brutal hack

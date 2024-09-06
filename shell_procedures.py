@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import re
 
-def import_orca(c_dir):
+def import_orca(container_dir='.'):
     subprocess.run(f'module import gnu openmpi orca',shell=True,cwd=container_dir)
 
 def request_orbitals(jobname, container_dir = False):
@@ -22,10 +22,10 @@ def request_uvvis_spectra(jobname,container_dir = False):
 def uvvis_whole_dir(directory):
     jobnames = os.listdir(directory)
     for job in [job for job in jobnames if not '.' in job]:
-        request_uvvis_spectra(job,f'directory/{job}')
+        request_uvvis_spectra(job,f'{directory}/{job}')
     
 def orbitals_whole_dir(directory):
     jobnames = os.listdir(directory)
     for job in [job for job in jobnames if not '.' in job]:
-        request_orbitals(job,f'directory/{job}')
+        request_orbitals(job,f'{directory}/{job}')
 
