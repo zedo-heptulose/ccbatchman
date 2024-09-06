@@ -306,46 +306,51 @@ def add_keywords(filename,*args):
 
     with open(filename,'w') as new_version:
         new_version.writelines(new_lines)
-        
+
+def new_jobs_from_existing(old_dir,new_dir,search,name_rules,remove_keywords,append_keywords,other_functions,change_coords=True):
+    job_dir_list = os.listdir(old_dir)
+    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
+        try:
+            copy_change_name(jobname,name_rules,old_dir,new_dir,change_coords)
+        except:
+            print('{old_dir}/{jobname} ommitted, unfinished job or other error')
+    new_job_dir_list = os.listdir(new_dir)
+    for jobname in (dn for dn in new_job_dir_list if re.search(search,dn)):
+        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
+        for function in other_functions:
+            #this expects a function with one argument, which is a filename
+            function(new_path)
+        strip_keywords(new_path,*remove_keywords)
+        add_keywords(new_path,*append_keywords)
 
 def tddft_from_finished_jobs(old_dir,new_dir,search=''):
-    job_dir_list = os.listdir(old_dir)
-    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
-        copy_change_name(jobname,[('--append','_tddft')],old_dir,new_dir)
-    
-    new_job_dir_list = os.listdir(new_dir)
-    for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
-        old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
-        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
-        add_tddft_block(new_path)
-        strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b')
-        add_keywords(new_path,'TightSCF')
+    new_jobs_from_existing(old_dir,new_dir,search,
+                            name_rules=[('--append','_tddft')],
+                            remove_keywords=[r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b'],
+                            append_keywords=['TightSCF'],
+                            other_functions=[add_tddft_block],
+                            change_coords=True
+                            )
 
+def singlepoint_from_finished_jobs(old_dir,new_dir,search=''): 
+    new_jobs_from_existing(old_dir,new_dir,search,
+                            name_rules=[('--append','_singlepoint')],
+                            remove_keywords=[r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b'],
+                            append_keywords=[],
+                            other_functions=[],
+                            change_coords=True
+                            )
 
-    
-def singlepoint_from_finished_jobs(old_dir,new_dir,search=''):
-    job_dir_list = os.listdir(old_dir)
-    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
-        copy_change_name(jobname,[('--append','_singlepoint')],old_dir,new_dir)
-    
-    new_job_dir_list = os.listdir(new_dir)
-    for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
-        old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
-        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
-        strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b')
+def frequencies_from_finished_jobs(old_dir,new_dir,search=''):
+    new_jobs_from_existing(old_dir,new_dir,search,
+                            name_rules=[('--append','_freq'),('opt','')],
+                            remove_keywords=[r'\bOPT\b',r'\bFREQ\b'],
+                            append_keywords=['FREQ'],
+                            other_functions=[],
+                            change_coords=True
+                            )
 
-#these should be factories, calling a function that does all this...
-def frequencies_from_finished_jobs(old_dir,new_dir,seach=''):
-    job_dir_list = os.listdir(old_dir)
-    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
-        copy_change_name(jobname,[('--append','_freq'),('opt','')],old_dir,new_dir)
-    new_job_dir_list = os.listdir(new_dir)
-    for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
-        old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
-        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
-        strip_keywords(new_path,r'\bOPT\b',r'\bFREQ\b')
-        add_keywords(new_path,'FREQ')
-
+#this one doesn't cleanly work with the DRY function, I guess I'll leave it like this
 def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
     #this is a brutal hack
     job_dir_list = os.listdir(old_dir)
