@@ -198,16 +198,15 @@ def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.',extensio
     if not os.path.exists(newdirpath):
         os.makedirs(newdirpath)
 
-    for extension in extensions:
-        with open(existpath + extension,'r') as old_file:
-            lines = old_file.readlines()
-            newlines = []
-            for line in lines:
-                new_line = re.sub(jobname,new_jobname,line)
-                newlines.append(new_line)
-
+    for extension in extensions:  
+        if extension == '.inp' or extension == '.sh':
+            with open(existpath + extension,'r') as old_file:
+                lines = old_file.readlines()
+            newlines = [re.sub(jobname,new_jobname,line) for line in lines]
             with open(newpath + extension,'w') as new_file:
                 new_file.writelines(newlines)
+        else:
+            shutil.copyfile(f'{existpath}{extension}',f'{newpath}{extension}') 
 
     if change_coords:
         coords = get_orca_coordinates(f'{existpath}.out')
@@ -359,12 +358,12 @@ def frequencies_from_finished_jobs(old_dir,new_dir,search=''):
 
 def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
     new_jobs_from_existing(old_dir,new_dir,search,
-                            name_rules=[('--append','_freq'),('opt','')],
-                            remove_keywords=[new_path,r'\bUKS\b',r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b',
+                            name_rules=[('--append','_uno_analysis')],
+                            remove_keywords=[r'\bUKS\b',r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b',
                 r'\bRIJCOSX\b',r'\bAUTOAUX\b',f'\\b{functional}\\b','Normalprint','noiter','MOREAD'],
                             append_keywords=['Normalprint noiter MOREAD'],
                             other_functions=[add_moinp_uno_block],
-                            extensions=['.inp','.sh'],
+                            extensions=['.inp','.sh','.uno'],
                             change_coords=True
                             )
 
