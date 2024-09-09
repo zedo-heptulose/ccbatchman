@@ -333,7 +333,7 @@ def tddft_from_finished_jobs(old_dir,new_dir,search=''):
                             remove_keywords=[r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b','\bTightSCF\b'],
                             append_keywords=['TightSCF'],
                             other_functions=[add_tddft_block],
-                            extensions=['.inp','.sh']
+                            extensions=['.inp','.sh'],
                             change_coords=True
                             )
 
@@ -343,7 +343,7 @@ def singlepoint_from_finished_jobs(old_dir,new_dir,search=''):
                             remove_keywords=[r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b'],
                             append_keywords=[],
                             other_functions=[],
-                            extensions=['.inp','.sh']
+                            extensions=['.inp','.sh'],
                             change_coords=True
                             )
 
@@ -353,7 +353,7 @@ def frequencies_from_finished_jobs(old_dir,new_dir,search=''):
                             remove_keywords=[r'\bOPT\b',r'\bFREQ\b'],
                             append_keywords=['FREQ'],
                             other_functions=[],
-                            extensions=['.inp','.sh']
+                            extensions=['.inp','.sh'],
                             change_coords=True
                             )
 
@@ -364,7 +364,7 @@ def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
                 r'\bRIJCOSX\b',r'\bAUTOAUX\b',f'\\b{functional}\\b','Normalprint','noiter','MOREAD'],
                             append_keywords=['Normalprint noiter MOREAD'],
                             other_functions=[add_moinp_uno_block],
-                            extensions=['.inp','.sh']
+                            extensions=['.inp','.sh'],
                             change_coords=True
                             )
 
