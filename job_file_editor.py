@@ -195,6 +195,9 @@ def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.',extensio
 
     newpath = f'{destination_dir}/{new_jobname}/{new_jobname}'
     newdirpath = f'{destination_dir}/{new_jobname}'
+    if os.path.exists(newdirpath):
+        raise ValueError('destination already exists, not writing')
+    
     if not os.path.exists(newdirpath):
         os.makedirs(newdirpath)
 
@@ -275,9 +278,11 @@ def strip_keywords(filename,*args):
         lines=old_version.readlines()
     new_lines = []
     for line in lines:
-        for keyword in args:
-            line = re.sub(keyword,'',line)
-        new_lines.append(line)
+        if re.match(r'\s*!',line):
+            for keyword in args:
+                line = re.sub(keyword,'',line)
+        if not re.match(r'\s*!\s*$',line):
+            new_lines.append(line)
 
     with open(filename,'w') as new_version:
         new_version.writelines(new_lines)
@@ -294,6 +299,9 @@ def add_keywords(filename,*args):
     for index, line in enumerate(lines):
         if re.match('\s*!',line):
             commands_end_index = index
+            for arg in args:
+                if arg in line:
+                    raise ValueError('Keyword already present')
     if commands_end_index == -1:
         raise ValueError('Invalid ORCA File Format')
     new_lines = []
@@ -321,9 +329,17 @@ def new_jobs_from_existing(old_dir,new_dir,search,name_rules,remove_keywords,
         new_path = f'{new_dir}/{jobname}/{jobname}.inp'
         for function in other_functions:
             #this expects a function with one argument, which is a filename
-            function(new_path)
-        strip_keywords(new_path,*remove_keywords)
-        add_keywords(new_path,*append_keywords)
+            #TODO: stop from editing old files
+            try:
+                function(new_path)
+            except:
+                print(f'{new_path} not edited, block already found or other error')
+                #continue
+        try:
+            strip_keywords(new_path,*remove_keywords)
+            add_keywords(new_path,*append_keywords)
+        except:
+            print(f'tried to add keyword that already existed')
 
 # job factories
 def tddft_from_finished_jobs(old_dir,new_dir,search=''):
