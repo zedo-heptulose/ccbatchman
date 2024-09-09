@@ -70,6 +70,9 @@ def replace_geometry(filename,coordinates):
     '''
     fixes failed geometry optimization
     '''
+    if 'out' in filename.split('.')[1]:
+        raise ValueError('Cannot replace coordinates of .out file')
+
     with open(filename,'r') as f:
         lines = f.readlines()
         
@@ -91,6 +94,16 @@ def replace_geometry(filename,coordinates):
     with open (filename,'w') as f:
         f.writelines(new_lines)
 
+def transfer_coords(coords_from,coords_to=None,rootdir='..'):
+    '''
+    expects a jobname for coords_from and coords_to, not formatted paths
+    '''
+    if coords_to == None:
+        coords_to = coords_from
+    coords = get_orca_coordinates(f'{rootdir}/{coords_from}/{coords_from}.out')
+    replace_geometry(f'{rootdir}/{coords_to}/{coords_to}.inp',coords)
+    
+
 def remove_opt_line(filename):
     '''
     '''
@@ -106,6 +119,7 @@ def remove_opt_line(filename):
 #debugged and works fine
 def add_freq_restart(filename):
     '''
+
     '''
     
     with open(filename,'r') as f:
@@ -150,7 +164,7 @@ def increase_memory(filename, multiplier):
 
 
 
-def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.',change_coords=True):
+def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.',extensions = ['.sh','.inp'],change_coords=True):
     '''
     expects a list of rules,
     which are pairs of arguments passed to re.sub
@@ -164,7 +178,6 @@ def copy_change_name(jobname,rules,existing_dir='.',destination_dir='.',change_c
     #TODO: tolerate appended '/' or lack thereof on dir arguments.
     #for now, assume there will be no trailing slash.
     existpath = f'{existing_dir}/{jobname}/{jobname}'
-    extensions = ['.sh','.inp']
 
     if len(rules) == 0:
         raise ValueError('Cannot call copy_change_name without rules')
@@ -220,38 +233,6 @@ def sort_into_directories(directory,extension,sh_filename):
             
         
 
-def add_tddft_block(filename):
-    '''
-    '''
-    #TODO: get rid of this entirely. There is a better, more general way.
-    with open(filename,'r') as old_version:
-        lines = old_version.readlines()
-        insert_index = -1
-        coordinate_pattern = re.compile(r'\s*\*\s*XYZ',re.I)
-        tddft_pattern = re.compile(r'%\s*tddft',re.I)
-        for index, line in enumerate(lines):
-            if re.search(coordinate_pattern,line):
-                insert_index = index
-            elif re.search(tddft_pattern,line):
-                print(f'file {filename} already contains tddft block')
-                return 
-
-        if insert_index == -1:
-            raise ValueError('Bad Orca File Format, Needs Coordinates')
-        
-        new_lines = []
-        new_lines += lines[:insert_index]
-        new_lines += [
-                '%tddft\n',
-                '  nroots = 50\n',
-                '  maxdim = 5\n',
-                'end\n',
-                ]
-        new_lines += lines[insert_index:]
-
-        with open(filename,'w') as new_version:
-            new_version.writelines(new_lines)
-
 def add_block(filename,add_lines):
     with open(filename,'r') as old_version:
         lines = old_version.readlines()
@@ -260,6 +241,8 @@ def add_block(filename,add_lines):
         for index, line in enumerate(lines):
             if re.search(coordinate_pattern,line):
                 insert_index = index
+            if add_lines[0] in line:
+                raise ValueError('Input file already contains block')
 
         if insert_index == -1:
             raise ValueError('Bad Orca File Format, Needs Coordinates')
@@ -271,6 +254,22 @@ def add_block(filename,add_lines):
 
         with open(filename,'w') as new_version:
             new_version.writelines(new_lines)
+
+def add_tddft_block(filename):
+    tddft_block = [
+                '%tddft\n',
+                '  nroots = 50\n',
+                '  maxdim = 5\n',
+                'end\n',
+                ]
+    add_block(filename,tddft_block)
+
+def add_moinp_uno_block(filename):
+    jobname = os.path.basename(filename)
+    jobname = jobname.split('.')[0]
+    moinp_block =[f'%moinp "{jobname}.uno"\n']
+    add_block(filename,moinp_block)
+
 
 def strip_keywords(filename,*args):
     with open(filename,'r') as old_version:
@@ -307,13 +306,17 @@ def add_keywords(filename,*args):
     with open(filename,'w') as new_version:
         new_version.writelines(new_lines)
 
-def new_jobs_from_existing(old_dir,new_dir,search,name_rules,remove_keywords,append_keywords,other_functions,change_coords=True):
+
+
+
+def new_jobs_from_existing(old_dir,new_dir,search,name_rules,remove_keywords,
+        append_keywords,other_functions,extensions=['.inp','.sh'],change_coords=True):
     job_dir_list = os.listdir(old_dir)
     for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
         try:
-            copy_change_name(jobname,name_rules,old_dir,new_dir,change_coords)
+            copy_change_name(jobname,name_rules,old_dir,new_dir,extensions,change_coords)
         except:
-            print('{old_dir}/{jobname} ommitted, unfinished job or other error')
+            print(f'{old_dir}/{jobname} omitted, unfinished job or other error')
     new_job_dir_list = os.listdir(new_dir)
     for jobname in (dn for dn in new_job_dir_list if re.search(search,dn)):
         new_path = f'{new_dir}/{jobname}/{jobname}.inp'
@@ -323,12 +326,14 @@ def new_jobs_from_existing(old_dir,new_dir,search,name_rules,remove_keywords,app
         strip_keywords(new_path,*remove_keywords)
         add_keywords(new_path,*append_keywords)
 
+# job factories
 def tddft_from_finished_jobs(old_dir,new_dir,search=''):
     new_jobs_from_existing(old_dir,new_dir,search,
                             name_rules=[('--append','_tddft')],
-                            remove_keywords=[r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b'],
+                            remove_keywords=[r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b','\bTightSCF\b'],
                             append_keywords=['TightSCF'],
                             other_functions=[add_tddft_block],
+                            extensions=['.inp','.sh']
                             change_coords=True
                             )
 
@@ -338,6 +343,7 @@ def singlepoint_from_finished_jobs(old_dir,new_dir,search=''):
                             remove_keywords=[r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b'],
                             append_keywords=[],
                             other_functions=[],
+                            extensions=['.inp','.sh']
                             change_coords=True
                             )
 
@@ -347,21 +353,19 @@ def frequencies_from_finished_jobs(old_dir,new_dir,search=''):
                             remove_keywords=[r'\bOPT\b',r'\bFREQ\b'],
                             append_keywords=['FREQ'],
                             other_functions=[],
+                            extensions=['.inp','.sh']
                             change_coords=True
                             )
 
-#this one doesn't cleanly work with the DRY function, I guess I'll leave it like this
 def uno_analysis_from_finished_jobs(old_dir,new_dir,search='',functional=''):
-    #this is a brutal hack
-    job_dir_list = os.listdir(old_dir)
-    for jobname in (dn for dn in job_dir_list if re.search(search,dn)):
-        copy_change_name(jobname,[('--append','_uno-analysis')],old_dir,new_dir)
-        shutil.copyfile(f'./{old_dir}/{jobname}/{jobname}.uno',f'./{new_dir}/{jobname}_uno-analysis/{jobname}_uno-analysis.uno') 
-    new_job_dir_list = os.listdir(new_dir)
-    for jobname in(dn for dn in new_job_dir_list if re.search(search,dn)):
-        old_out_path = f'{old_dir}/{jobname}/{jobname}.out'
-        new_path = f'{new_dir}/{jobname}/{jobname}.inp'
-        strip_keywords(new_path,r'\bUKS\b',r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b',
-                r'\bRIJCOSX\b',r'\bAUTOAUX\b',f'\\b{functional}\\b')
-        add_keywords(new_path,'Normalprint noiter MOREAD')
-        add_block(new_path,[f'%moinp "{jobname}.uno"\n'])
+    new_jobs_from_existing(old_dir,new_dir,search,
+                            name_rules=[('--append','_freq'),('opt','')],
+                            remove_keywords=[new_path,r'\bUKS\b',r'\bOPT\b',r'\bFREQ\b',r'\bUNO\b',
+                r'\bRIJCOSX\b',r'\bAUTOAUX\b',f'\\b{functional}\\b','Normalprint','noiter','MOREAD'],
+                            append_keywords=['Normalprint noiter MOREAD'],
+                            other_functions=[add_moinp_uno_block],
+                            extensions=['.inp','.sh']
+                            change_coords=True
+                            )
+
+
