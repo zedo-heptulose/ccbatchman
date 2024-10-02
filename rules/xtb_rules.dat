@@ -1,0 +1,6 @@
+SP_energy_au; TOTAL ENERGY ; last ; float
+bandgap_ev ; HOMO-LUMO GAP ; last ; float
+
+__after__ ; RELAXED SCAN
+    step_{}_energy_au ; current energy: ; list first ; float
+__before__ ; Property Printout
