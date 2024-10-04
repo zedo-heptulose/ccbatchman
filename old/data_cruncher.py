@@ -321,8 +321,8 @@ def plot_dataframes(frames,col):
     # Show the plot
     plt.show()
     
-'''
-to do now-
- work on plotting functions
- work on getting list of failed trials
-'''
+    '''
+    to do now-
+     work on plotting functions
+     work on getting list of failed trials
+    '''

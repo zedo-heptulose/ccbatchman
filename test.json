@@ -1,0 +1,1 @@
+{"batch_name": "test", "scratch_directory": "./", "run_directory": "./", "jobs": [{"directory": "./", "job_name": "bruh_momento", "status": "not_started", "job_id": null, "restart": true, "ruleset": "rules/gaussian_rules.dat"}], "batchfile": null, "ledger_filename": "__ledger__.csv", "restart": true, "max_jobs_running": 1}

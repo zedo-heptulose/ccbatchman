@@ -1,0 +1,49 @@
+reading old ledger on startup
+before: job_id                                            -1
+job_basename       cyclopentanone_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 0, dtype: object
+after: job_id                                      10002550
+job_basename       cyclopentanone_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 0, dtype: object
+before: job_id                                            -1
+job_basename           aceticacid_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 1, dtype: object
+after: job_id                                      10002552
+job_basename           aceticacid_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 1, dtype: object
+before: job_id                                            -1
+job_basename         ethylacetate_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 2, dtype: object
+after: job_id                                      10002556
+job_basename         ethylacetate_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 2, dtype: object
+before: job_id                                      10002556
+job_basename         ethylacetate_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 2, dtype: object
+after: job_id                                      10002557
+job_basename         ethylacetate_singlet_hf_3c_opt_
+job_directory    /gpfs/home/gdb20/test/queue_test/./
+job_status                               not_started
+program                                         ORCA
+Name: 2, dtype: object
