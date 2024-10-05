@@ -75,10 +75,22 @@ class BatchRunner:
             not_started_jobs = self.ledger.loc[self.ledger['job_status'] == 'not_started']
             for i in range(min(self.max_jobs_running-num_running_jobs,
                                len(not_started_jobs))):
-                job = job_harness.JobHarness()
+                try:
+                    if not_started_jobs.iloc[i]['program'].lower() == 'gaussian':
+                        job = job_harness.GaussianHarness()
+                        print('Using Gaussian parsing rules')
+                    elif not_started_jobs.iloc[i]['program'].lower() == 'orca':
+                        job = job_harness.ORCAHarness()
+                        print('Using ORCA parsing rules')
+                except:
+                    print(f"Warning: No program read. Parameter set as {not_started_jobs.iloc[i]['program']}")
+                    print(f"Assuming ORCA Input")
+                    job = job_harness.ORCAHarness()
                 job.job_name = not_started_jobs.iloc[i]['job_basename']
                 #jobs in directory with their basename, and their files have this basename
-                job.directory = os.path.join(not_started_jobs.iloc[i]['job_directory'],job.job_name) #TODO: make this toggleable
+                job.directory = os.path.join(not_started_jobs.iloc[i]['job_directory'],job.job_name)
+                print(f"directory set to {job.directory}")
+                print(f"full basename is {job.directory}/{job.job_name}")
                 #job.ruleset = SOME MAP BETWEEN PROGRAMS AND RULE SETS
                 job.submit_job()
                 ledger_index = not_started_jobs.index[i]
@@ -87,8 +99,8 @@ class BatchRunner:
                 if debug: print(f"before: {self.ledger.loc[ledger_index]}")
                 if debug: print(f"job id: {job.job_id}")
                 self.ledger.loc[ledger_index,'job_id'] = job.job_id
-                if debug: print(f"job status: {job.job_status}")
-                #self.ledger.loc[ledger_index,'job_status'] = job.status #doesn't work; for now update ledger will be able to tell
+                if debug: print(f"job status: {job.status}")
+                self.ledger.loc[ledger_index,'job_status'] = job.status #doesn't work; for now update ledger will be able to tell
                 if debug: print(f"after: {self.ledger.loc[ledger_index]}")
                 
                 self.jobs.append(job)
@@ -107,13 +119,32 @@ class BatchRunner:
         ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
         self.ledger.to_csv(ledger_path,sep='|',index=False)
 
-    def load_ledger(self,**kwargs):
-        full_path_basename = os.path.join(self.scratch_directory,self.ledger_filename)
-        if not os.path.exists(full_path_basename):
+    def restart_from_ledger(self,**kwargs):
+        ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
+        if not os.path.exists(ledger_path):
             raise ValueError('ledger path does not exist')
-        self.ledger = pd.read_csv(full_path_basename,sep='|',index=False)
+        self.ledger = pd.read_csv(ledger_path,sep='|')
+        print(f"Ledger loaded:\n{self.ledger}")
+        #this also needs to create job objects for each existing job
+        current_job_mask = (self.ledger['job_id'] != -1)
         
-    
+        for index, row in self.ledger[current_job_mask].iterrows():
+            if row['program'].lower() == 'gaussian':
+                new_job = job_harness.GaussianHarness()
+                print('Gaussian!')
+            elif row['program'].lower() == 'orca':
+                print('ORCA!')
+                new_job = job_harness.ORCAHarness()
+            else:
+                print('JOB PROGRAM NOT SPECIFIED, ASSUMING ORCA')
+                new_job = job_harness.ORCAHarness()
+            new_job.job_id = row['job_id']
+            new_job.status = row['job_status']
+            new_job.directory = os.path.join(row['job_directory'],row['job_basename'])
+            new_job.job_name = row['job_basename']
+            new_job.restart = True 
+            self.jobs.append(new_job)
+
     def read_batchfile(self):
         '''
         this file should contain a list of filenames to run,
@@ -138,24 +169,31 @@ class BatchRunner:
         
         self.ledger['job_id']=[-1 for i in range (len(batch))]
         self.ledger['job_basename'] = batch['job_basename']
-        self.ledger['job_directory'] = [os.path.join(root_dir, batch_dir if type(batch_dir) is str else "") for batch_dir in batch['job_directory']]
+        self.ledger['job_directory'] = [os.path.join(self.run_root_directory,batch_dir if type(batch_dir) is str else "") for batch_dir in batch['job_directory']]
         #ledger['depends_on'] = batch.iloc[:,1].fillna('')
         self.ledger['job_status'] = ['not_started' for i in range (len(batch))]
         self.ledger['program'] = batch['program'] #ORCA,CREST,GAUSSIAN,ETC
         return self.ledger
-        
+        self.ledger['coords_from']  = batch['coords_from']
+        self.ledger['xyz_basename'] = batch['xyz_basename']
+        #uses basename.xyz if left blank
     
     def MainLoop(self,**kwargs):
         debug = kwargs.get('debug',False)
         complete = False
         try:
-            self.load_ledger()
+            self.restart_from_ledger()
             print('reading old ledger on startup')
         except:
             self.read_batchfile()
             print('reading batchfile on startup')
+        print('entering for loop')
         while not self.check_finished():
+            print('\n\nupdating ledger and running job loops\n\n')
             self.run_jobs_update_ledger()
-            self.write_ledger()
+            print('\n\nqueueing new jobs\n\n')
             self.queue_new_jobs()
-            time.sleep(10)
+            print('\n\nwriting ledger\n\n')
+            self.write_ledger()
+            print('\n\nsleeping\n\n')
+            time.sleep(5)

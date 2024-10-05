@@ -1,49 +1,80 @@
-reading old ledger on startup
-before: job_id                                            -1
-job_basename       cyclopentanone_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 0, dtype: object
-after: job_id                                      10002550
-job_basename       cyclopentanone_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 0, dtype: object
-before: job_id                                            -1
-job_basename           aceticacid_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 1, dtype: object
-after: job_id                                      10002552
-job_basename           aceticacid_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 1, dtype: object
-before: job_id                                            -1
-job_basename         ethylacetate_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 2, dtype: object
-after: job_id                                      10002556
-job_basename         ethylacetate_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 2, dtype: object
-before: job_id                                      10002556
-job_basename         ethylacetate_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 2, dtype: object
-after: job_id                                      10002557
-job_basename         ethylacetate_singlet_hf_3c_opt_
-job_directory    /gpfs/home/gdb20/test/queue_test/./
-job_status                               not_started
-program                                         ORCA
-Name: 2, dtype: object
+batchfile contents:
+                    job_basename  job_directory   program
+0           h2o2_b3lyp_6-311+Gdp            NaN  Gaussian
+1          h2o2_b3lyp_6-311++Gdp            NaN  Gaussian
+2            h2o2_b3lyp_6-31+Gdp            NaN  Gaussian
+3           h2o2_b3lyp_6-31++Gdp            NaN  Gaussian
+4          h2o2_m06-2x_6-311+Gdp            NaN  Gaussian
+5         h2o2_m06-2x_6-311++Gdp            NaN  Gaussian
+6           h2o2_m06-2x_6-31+Gdp            NaN  Gaussian
+7          h2o2_m06-2x_6-31++Gdp            NaN  Gaussian
+8          h2o2_m08-hx_6-311+Gdp            NaN  Gaussian
+9         h2o2_m08-hx_6-311++Gdp            NaN  Gaussian
+10          h2o2_m08-hx_6-31+Gdp            NaN  Gaussian
+11         h2o2_m08-hx_6-31++Gdp            NaN  Gaussian
+12         h2o2_pbepbe_6-311+Gdp            NaN  Gaussian
+13        h2o2_pbepbe_6-311++Gdp            NaN  Gaussian
+14          h2o2_pbepbe_6-31+Gdp            NaN  Gaussian
+15         h2o2_pbepbe_6-31++Gdp            NaN  Gaussian
+16    oh_radical_b3lyp_6-311+Gdp            NaN  Gaussian
+17   oh_radical_b3lyp_6-311++Gdp            NaN  Gaussian
+18     oh_radical_b3lyp_6-31+Gdp            NaN  Gaussian
+19    oh_radical_b3lyp_6-31++Gdp            NaN  Gaussian
+20   oh_radical_m06-2x_6-311+Gdp            NaN  Gaussian
+21  oh_radical_m06-2x_6-311++Gdp            NaN  Gaussian
+22    oh_radical_m06-2x_6-31+Gdp            NaN  Gaussian
+23   oh_radical_m06-2x_6-31++Gdp            NaN  Gaussian
+24   oh_radical_m08-hx_6-311+Gdp            NaN  Gaussian
+25  oh_radical_m08-hx_6-311++Gdp            NaN  Gaussian
+26    oh_radical_m08-hx_6-31+Gdp            NaN  Gaussian
+27   oh_radical_m08-hx_6-31++Gdp            NaN  Gaussian
+28   oh_radical_pbepbe_6-311+Gdp            NaN  Gaussian
+29  oh_radical_pbepbe_6-311++Gdp            NaN  Gaussian
+30    oh_radical_pbepbe_6-31+Gdp            NaN  Gaussian
+31   oh_radical_pbepbe_6-31++Gdp            NaN  Gaussian
+reading batchfile on startup
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-311+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-311+Gdp/h2o2_b3lyp_6-311+Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-311++Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-311++Gdp/h2o2_b3lyp_6-311++Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-31+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-31+Gdp/h2o2_b3lyp_6-31+Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-31++Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_b3lyp_6-31++Gdp/h2o2_b3lyp_6-31++Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-311+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-311+Gdp/h2o2_m06-2x_6-311+Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-311++Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-311++Gdp/h2o2_m06-2x_6-311++Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-31+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-31+Gdp/h2o2_m06-2x_6-31+Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-31++Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m06-2x_6-31++Gdp/h2o2_m06-2x_6-31++Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-311+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-311+Gdp/h2o2_m08-hx_6-311+Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-311++Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-311++Gdp/h2o2_m08-hx_6-311++Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-31+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-31+Gdp/h2o2_m08-hx_6-31+Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-31++Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_m08-hx_6-31++Gdp/h2o2_m08-hx_6-31++Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_pbepbe_6-311+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_pbepbe_6-311+Gdp/h2o2_pbepbe_6-311+Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_pbepbe_6-311++Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_pbepbe_6-311++Gdp/h2o2_pbepbe_6-311++Gdp
+Using Gaussian parsing rules
+directory set to /gpfs/home/gdb20/code/input_macros/temp/h2o2_pbepbe_6-31+Gdp
+full basename is /gpfs/home/gdb20/code/input_macros/temp/h2o2_pbepbe_6-31+Gdp/h2o2_pbepbe_6-31+Gdp

@@ -2,7 +2,8 @@ HOMO_energy_au                ; Alpha\s+occ\.\s+eigenvalues               ; last
 LUMO_energy_au                ; Alpha\s+virt\.\s+eigenvalues              ; first      ; float
 SP_energy_au	              ; SCF Done:		                          ; last       ; float
 enthalpy_au	                  ; electronic\s+and\s+thermal\s+Enthalpies   ; last       ; float 
-true_minimum	              ; imaginary	                              ; not_found     
+true_minimum	              ; imaginary	                              ; not_found   
+is_opt_freq                   ; (?i)opt\s+freq                            ; found
 successful_completion         ; Normal\s*termination\s*of\s*Gaussian      ; found
 successful_completion_optfreq ; Normal\s*termination\s*of\s*Gaussian      ; at_least_2
 #cpu_time_minutes              ; Job cpu time:                             ; sum        ; number ; weighted_sum [1440, 60, 1, 0.0167]

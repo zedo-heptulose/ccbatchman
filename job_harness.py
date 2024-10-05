@@ -15,13 +15,13 @@ class JobHarness:
         #filesystem
         self.directory = './' #directory where input files are located
         self.job_name = '' #job_name should be the root of the input file and .sh file
-
+        self.output_extension = '.out'
         #run data
         self.status = 'not_started'
         self.job_id = None
 
         #flags
-        self.ruleset = GAUSSRULES #ORCARULES #used to choose rules for parsing
+        self.ruleset = ORCARULES #used to choose rules for parsing
         self.restart = True #when this flag is enabled, we will look for old temp files and use them
 
     def to_dict(self):
@@ -106,18 +106,21 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                 return
 
             else:
-                raise ValueError('Something broke here')
+                in_progress = False
         
-        else:
+        if not in_progress: #this isn't an if-else because in_progress can be changed in the last conditional
             #TODO: FIX THIS 
             temp_status = file_parser.extract_data(
-                          f"{os.path.join(self.directory,self.job_name)}.out",
+                          f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
                           self.ruleset
                           )
-            self.status = 'succeeded' if temp_status['completion_success'] else 'failed'
+            self.status = self.check_success(temp_status) 
             return
+
+    def check_success(self, file_parser_output):
+        return 'succeeded' if file_parser_output['completion_success'] else 'failed'
+
         
-            
     def submit_job(self,**kwargs):
         debug = kwargs.get('debug',False)
         if debug: print(f"In directory {self.directory}")
@@ -134,7 +137,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                 if debug: print(f"Directory: {self.directory}")
                 raise ValueError(f"Bad submission script! output: {output}")
             self.job_id = int(re.search(r'\d+',output).group(0))
-            self.job_status = 'pending'
+            self.status = 'pending'
             self.write_json()
         except:
             raise ValueError(f"Bad submission script! output: {output}")    
@@ -142,7 +145,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
     def parse_output(self,**kwargs):
         debug = kwargs.get('debug',False)
         data = file_parser.extract_data(
-                    f"{os.path.join(self.directory,self.job_name)}.out",
+                    f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
                     self.ruleset
                     )
         with open(f"{os.path.join(self.directory, self.job_name)}.json",'w') as json_file:
@@ -185,4 +188,22 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             return 1
         elif self.status == 'succeeded':
             return 0
+
+class ORCAHarness(JobHarness):
+    def __init__(self):
+        JobHarness.__init__(self)
+        self.ruleset = ORCARULES
+        self.output_extension = '.out'
         
+
+class GaussianHarness(JobHarness):
+    def __init__(self):
+        JobHarness.__init__(self)
+        self.ruleset = GAUSSRULES
+        self.output_extension = '.log'
+
+    def check_success(self, file_parser_output):
+        if file_parser_output['is_opt_freq']:
+            return 'succeeded' if file_parser_output['successful_completion_optfreq'] else 'failed'
+        else:
+            return 'succeeded' if file_parser_output['successful_completion'] else 'failed'
