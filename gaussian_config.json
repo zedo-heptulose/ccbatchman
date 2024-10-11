@@ -1,0 +1,31 @@
+{
+  "path_to_program": "g16",
+  "pre_submit_lines": [
+	  "module purge",
+  	  "module load gaussian16"
+  ],
+  "post_submit_lines": null,
+  "num_cores": 12,
+  "mem_per_cpu_GB": 4,
+  "runtime": "3-00:00:00",
+  "write_directory": "./test/",
+  "job_basename": "test",
+  "xyz_directory" : "./",
+  "xyz_file": "test.xyz",
+  "charge": 0,
+  "spin_multiplicity": 1,
+  "uks": true,
+  "broken_symmetry": false,
+  "run_type":"opt freq",
+  "functional": "b3lyp",
+  "basis": "6-31g(d,p)",
+  "solvent" : null,
+  "aux_basis": null,
+  "dispersion_correction": null,
+  "bsse_correction":null,
+  "density_fitting": null,
+  "natural_orbitals": false,
+  "integration_grid": null,
+  "other_keywords": [],
+  "blocks": {}
+}

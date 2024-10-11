@@ -1,0 +1,14 @@
+! UKS
+! r2SCAN-3c
+! opt
+! freq
+
+%maxcore 3000
+
+%pal
+ nprocs 20
+end
+
+
+* xyzfile 0 1 test.xyz 
+

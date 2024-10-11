@@ -1,0 +1,19 @@
+Error: segmentation violation
+   rax 0000000000000000, rbx ffffffffffffffff, rcx 0000147e623e54bb
+   rdx 0000000000000000, rsp 00007ffeb5e4ec08, rbp 00007ffeb5e4f180
+   rsi 000000000000000b, rdi 000000000021a30f, r8  0000000000000020
+   r9  00007ffeb5e4e318, r10 0000000000000007, r11 0000000000000202
+   r12 00007ffeb5e4f1c8, r13 0000000000000000, r14 0000000000000000
+   r15 00000000000003e6
+  /lib64/libpthread.so.0(+0x12ce0) [0x147e62b1bce0]
+  /lib64/libc.so.6(kill+0xb) [0x147e623e54bb]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x4ae750]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x4e9881]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x4c81b7]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x415176]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x40866c]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x404c2a]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x40468c]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe() [0x40460b]
+  /lib64/libc.so.6(__libc_start_main+0xf3) [0x147e623fccf3]
+  /gpfs/research/software/gaussian16/intel/g16/l1.exe(sched_setaffinity+0xc1) [0x404519]

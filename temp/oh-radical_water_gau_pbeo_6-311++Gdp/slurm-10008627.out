@@ -1,0 +1,19 @@
+Error: segmentation violation
+   rax 0000000000000000, rbx ffffffffffffffff, rcx 0000148012ec34bb
+   rdx 0000000000000000, rsp 00007fff4029af38, rbp 00007fff4029b4b0
+   rsi 000000000000000b, rdi 00000000001c5ce0, r8  0000000000000020
+   r9  00007fff4029a648, r10 0000000000000007, r11 0000000000000202
+   r12 00007fff4029b4f8, r13 0000000000000000, r14 0000000000000000
+   r15 00000000000003e6
+  /lib64/libpthread.so.0(+0x12ce0) [0x148013602ce0]
+  /lib64/libc.so.6(kill+0xb) [0x148012ec34bb]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x4ae980]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x4e9971]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x4c8317]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x4153b6]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x4088ac]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x404e6a]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x4048cc]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe() [0x40484b]
+  /lib64/libc.so.6(__libc_start_main+0xf3) [0x148012edacf3]
+  /gpfs/research/software/gaussian16/amd/g16/l1.exe(sched_setaffinity+0xb9) [0x404779]

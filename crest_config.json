@@ -1,0 +1,28 @@
+{
+  "path_to_program": "crest",
+  "pre_submit_lines": [
+	  "conda init bash",
+	  "source ~/.bashrc",
+	  "conda activate crest3",
+	  "export PYTHONUNBUFFERED=1"
+  ],
+  "post_submit_lines": null,
+  "num_cores": 12,
+  "mem_per_cpu_GB": 2,
+  "runtime": "3-00:00:00",
+  "write_directory": "./test/",
+  "job_basename": "test",
+  "xyz_directory" : "./",
+  "xyz_file": "test.xyz",
+  "charge": 0,
+  "spin_multiplicity": 1,
+  "uks": true,
+  "functional": "gfn2",
+  "solvent" : null,
+  "cluster" : true,
+  "quick" : "quick",
+  "reopt" : true,
+  "other_keywords": [
+  	"noreftopo"
+  ]
+}

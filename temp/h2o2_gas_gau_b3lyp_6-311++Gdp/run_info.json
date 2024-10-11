@@ -1,0 +1,1 @@
+{"directory": "/gpfs/home/gdb20/code/batch-manager/temp/h2o2_gas_gau_b3lyp_6-311++Gdp", "job_name": "h2o2_gas_gau_b3lyp_6-311++Gdp", "status": "succeeded", "job_id": 10008580, "restart": true, "ruleset": "rules/gaussian_rules.dat"}

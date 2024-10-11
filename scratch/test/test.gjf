@@ -1,0 +1,11 @@
+%nprocshared=1
+%mem=2gb
+%chk=/gpfs/home/gdb20/code/ORCA-batch-manager/scratch/test/test.gjf.chk
+#opt freq ub3lyp/6-31g(d,p)
+
+super secret special scripts shaped sthis submission sfile
+
+0 1
+O 0.00 0.00 0.00
+
+

@@ -1,1 +1,1 @@
-step_{}_energy_kcal/mol ; \d ; list last ; float
+completion_success ; CREST\s+terminated\s+normally  ; found

@@ -1,0 +1,14 @@
+%nprocshared=1
+%mem=2gb
+%chk=/gpfs/home/gdb20/code/batch-manager/temp/h2o2_water_gau_m06-2x_6-311+Gdp/h2o2_water_gau_m06-2x_6-311+Gdp.gjf.chk
+#opt freq uM062X/6-311+G* SRCF(SMD,Solvent=water)
+
+super secret special scripts shaped sthis submission sfile
+
+0 1
+ O         -0.7069086941       -0.0768548635       -0.0000878624
+ O          0.7069320564        0.0768627744       -0.0000878013
+ H         -1.0215006415        0.8444197247        0.0013943090
+ H          1.0211297895       -0.8445453025        0.0013941763
+
+

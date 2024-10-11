@@ -9,6 +9,7 @@ import time
 
 ORCARULES = 'rules/orca_rules.dat'
 GAUSSRULES = 'rules/gaussian_rules.dat'
+CRESTRULES = 'rules/crest_rules.dat'
 
 class JobHarness:
     def __init__(self):
@@ -140,7 +141,9 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             self.status = 'pending'
             self.write_json()
         except:
-            raise ValueError(f"Bad submission script! output: {output}")    
+            raise ValueError(f"""Bad submission script!
+                    in directory: {self.directory}
+                    output: {output}""")    
 
     def parse_output(self,**kwargs):
         debug = kwargs.get('debug',False)
@@ -194,16 +197,24 @@ class ORCAHarness(JobHarness):
         JobHarness.__init__(self)
         self.ruleset = ORCARULES
         self.output_extension = '.out'
-        
+        self.input_extension = '.inp'
 
 class GaussianHarness(JobHarness):
     def __init__(self):
         JobHarness.__init__(self)
         self.ruleset = GAUSSRULES
         self.output_extension = '.log'
+        self.input_extension = '.gjf'
 
     def check_success(self, file_parser_output):
         if file_parser_output['is_opt_freq']:
             return 'succeeded' if file_parser_output['successful_completion_optfreq'] else 'failed'
         else:
             return 'succeeded' if file_parser_output['successful_completion'] else 'failed'
+
+class CRESTHarness(JobHarness):
+    def __init__(self):
+        JobHarness.__init__(self)
+        self.ruleset = CRESTRULES
+        self.output_extension = '.out'
+        self.input_extension = None
