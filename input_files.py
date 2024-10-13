@@ -4,7 +4,7 @@ import shutil
 import json
 import helpers
 
-CONFIGPATH = './'
+CONFIGPATH = './config/'
 ORCACONFIG = 'orca_config.json'
 GAUSSCONFIG = 'gaussian_config.json'
 CRESTCONFIG = 'crest_config.json'
@@ -435,7 +435,7 @@ class GaussianInputBuilder(InputBuilder):
             self.config['integration_grid'],
         ]
         if self.config['solvent']:
-            inp.keywords.append(f"SRCF(SMD,Solvent={self.config['solvent']})",)
+            inp.keywords.append(f"SCRF(SMD,Solvent={self.config['solvent']})",)
         inp.keywords.append(self.config['other_keywords'])
 
         nprocs = self.config['num_cores']

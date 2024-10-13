@@ -26,7 +26,7 @@ def iterate_inputs(list_of_dict_of_dicts):
 
 def add_global_config(_configs,global_config):
     if type(_configs) is dict:
-        configs = {key : helpers.merge_dicts(global_config,value) for key,value in _configs}
+        configs = {key : helpers.merge_dicts(global_config,value) for key,value in _configs.items()}
     elif type(_configs) is list:
         configs = [helpers.merge_dicts(global_config,value) for value in configs]
     return configs
