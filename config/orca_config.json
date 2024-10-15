@@ -1,10 +1,12 @@
 {
+  "program": "ORCA",
+  "version": "6.0.0",
   "path_to_program": "/gpfs/research/software/orca/orca_6_0_0_shared_openmpi416/orca",
   "pre_submit_lines": ["module load gnu/8.5.0 openmpi/4.1.6 orca/6.0.0"],
   "post_submit_lines": null,
-  "num_cores": 20,
+  "num_cores": 12,
   "mem_per_cpu_GB": 4,
-  "runtime": "5-00:00:00",
+  "runtime": "2-00:00:00",
   "write_directory": "./test/",
   "job_basename": "test",
   "xyz_directory" : "./",
@@ -13,7 +15,7 @@
   "spin_multiplicity": 1,
   "uks": true,
   "broken_symmetry": false,
-  "run_type":"opt freq",
+  "run_type":null,
   "functional": "r2SCAN-3c",
   "basis": null,
   "solvent" : null,
@@ -22,7 +24,11 @@
   "bsse_correction":null,
   "density_fitting": null,
   "natural_orbitals": false,
-  "integration_grid": null,
+  "integration_grid": "DefGrid2",
+  "scf_tolerance" : "VeryTightSCF",
+  "verbosity" : "MiniPrint",
+  "moread" : false,
   "other_keywords": [],
-  "blocks": {}
+  "blocks": {},
+  "strings": []
 }

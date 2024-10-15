@@ -2,41 +2,71 @@ import helpers
 import input_files
 import itertools
 import os
+import copy
 
-def iterate_inputs(list_of_dict_of_dicts):
+
+#iterate inputs has some new rules
+#some of the dicts in the list_of_dicts..
+#will be flags.
+#this needs to handle this
+
+#so currently, it would trace a path through these keys...
+
+#idea being, iterate_inputs(*sort_flags(lodod))
+
+FLAGS = ['!directories']
+
+def sort_flags(list_of_dict_of_dicts):
+    mod_list = copy.deepcopy(list_of_dict_of_dicts)
+    flag_array = [] #list of lists
+    for i, d in enumerate(list_of_dict_of_dicts):
+        flag_array.append([])  
+        for k, v in d.items():
+            if k in FLAGS:
+                del mod_list[i][k]
+                if k == '!directories' and v:
+                    flag_array[i].append(k)
+                    
+    return (mod_list,flag_array)
+
+
+def iterate_inputs(list_of_dict_of_dicts,flag_array):
     all_paths = itertools.product(*[d.keys() for d in list_of_dict_of_dicts])
-    all_configs = {}
+    all_configs = []
+    #print("acknowledge meeee")
     for key_path in all_paths:
         config_dict = {}
         name_list = []
-        for index, key in enumerate(key_path):
-            name_list.append(key)
+        #print(key_path)
+        for index, key, flags in zip(range(0,len(key_path)),key_path,flag_array):
+            #print("iterating")
+            if '!directories' in flags:
+                config_dict['write_directory'] = os.path.join(config_dict.get('write_directory',''),key)
+            else:
+                name_list.append(key)
             try:
                 config_dict = helpers.merge_dicts(config_dict,list_of_dict_of_dicts[index][key])
+                #print(f"CONFIG DICT: \n{config_dict}")
             except:
                 print(f"""
                 warning: error for items:
                 {config_dict}
                 {list_of_dict_of_dicts[index][key]}
                 """)
-        name = '_'.join(name_list)
+        name = '_'.join([name_frag for name_frag in name_list if name_frag])
         config_dict['job_basename'] = name
-        all_configs[name] = config_dict
+        #print(f"\n\nat the end of it all: {config_dict}\n\n")
+        all_configs.append(config_dict)
     return all_configs
 
-def add_global_config(_configs,global_config):
-    if type(_configs) is dict:
-        configs = {key : helpers.merge_dicts(global_config,value) for key,value in _configs.items()}
-    elif type(_configs) is list:
-        configs = [helpers.merge_dicts(global_config,value) for value in configs]
-    return configs
 
-def write_input_array(_configs):
+def write_input_array(_configs,root_directory):
     if type(_configs) is dict:
         configs = _configs.values()
     else:
         configs = _configs
     for config in configs:
+        #print(f"CONFIG: \n{config}")
         if config['program'].lower() == 'orca':
             inp = input_files.ORCAInputBuilder()
         elif config['program'].lower() == 'gaussian':
@@ -45,11 +75,38 @@ def write_input_array(_configs):
             inp = input_files.CRESTInputBuilder()
         else:
             raise ValueError('unsupported program')
-        config['write_directory'] = os.path.join(config['write_directory'],config['job_basename'])
+        config['write_directory'] = os.path.join(root_directory,config['write_directory'],config['job_basename'])
         inp.change_params(config)
         job = inp.build()
         job.create_directory()
+        del job
+        del inp
 
-def generate_batchfile(_configs,existing_batchfile=None):
-    pass
+def generate_batchfile(_configs,root_dir,filename):
+    path = os.path.join(root_dir,filename)
+    existed = os.path.exists(path)
+    append_or_write = 'w'
+    if existed:
+        append_or_write = 'a'
+    with open(path,append_or_write) as batchfile:
+        if not existed:
+            batchfile.write(
+                f"root_directory={root_dir}\n"
+            )
+            batchfile.write(
+                'job_directory|job_basename|program|pipe\n'
+            )
+        for config in _configs:
+            job_basename = config['job_basename']
+            #TODO: this must not redundantly inlcude root
+            job_directory = config['write_directory']
+            program = config['program']
+            coords_from = config.get('!coords_from',None)
+            xyz_file = config.get('!xyz_file',None)
+            pipe_string = ''
+            if coords_from and xyz_file:
+                pipe_string = f"coords{{{coords_from},{xyz_file}}}"
+            batchfile.write(
+                f"{job_directory}|{job_basename}|{program}|{pipe_string}\n"
+            )
 

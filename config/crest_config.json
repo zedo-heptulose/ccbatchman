@@ -20,9 +20,8 @@
   "functional": "gfn2",
   "solvent" : null,
   "cluster" : true,
-  "quick" : "quick",
-  "reopt" : true,
-  "other_keywords": [
-  	"noreftopo"
-  ]
+  "quick" : false,
+  "reopt" : false,
+  "noreftopo" : false,
+  "other_keywords": []
 }

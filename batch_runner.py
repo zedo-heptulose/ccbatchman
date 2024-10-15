@@ -95,6 +95,24 @@ class BatchRunner:
             if job.status == 'failed' or job.status == 'succeeded':
                 self.jobs.pop(index)
 
+    def replace_coords(self,job,xyz_directory,xyz_filename):
+        input_filename = f"{job.basename}{job.extension}"
+        input_directory = f"{job.directory}"
+        xyz_directory = os.path.join(job.directory,xyz_directory)
+        editor.replace_xyz_file(input_filename,input_directory,xyz_filename,xyz_directory)
+
+    def transfer_coords(self,ledger_row,job):
+        coords_from = ledger_row['coords_from']
+        xyz_filename = ledger_row['xyz_filename']
+        if (coords_from and not pd.isna(coords_from)) and (xyz_filename and not pd.isna(xyz_filename)):
+            if self.debug: print("calling replace_coords(0,2,3) with args:")
+            if self.debug: print(f"""
+                    0: {job} with {job.basename} and {job.directory}
+                    1: {coords_from}
+                    2: {xyz_filename}
+                    """)
+            replace_coords(job,coords_from,xyz_filename)
+
     def queue_new_jobs(self,**kwargs):
         running_mask = (self.ledger['job_status'] == 'running') |\
                        (self.ledger['job_status'] == 'pending') 
@@ -122,27 +140,22 @@ class BatchRunner:
                     job = job_harness.ORCAHarness()
                 job.job_name = not_started_jobs.iloc[i]['job_basename']
                 #jobs in directory with their basename, and their files have this basename
-                job.directory = os.path.join(not_started_jobs.iloc[i]['job_directory'],job.job_name)
+                job.directory = not_started_jobs.iloc[i]['job_directory']
                 if self.debug: print(f"directory set to {job.directory}")
-                if self.debug: print(f"full basename is {job.directory}/{job.job_name}")
                 
-                #TODO: MOVE THIS LOGIC ELSEWHERE
-                #TODO: DETANGLE BASENAME DIRECTORY NONSENSE
-                coords_from = not_started_jobs.iloc[i]['coords_from']
-                xyz_filename = not_started_jobs.iloc[i]['xyz_filename']
-                if self.debug: print(f"looking for coords_from: {coords_from}")
-                if coords_from and type(coords_from) is str:
-                    if not xyz_filename or not type(coords_from) is str:
-                        xyz_filename = os.path.basename(coords_from) + '.xyz'
-                    input_filename = not_started_jobs.iloc[i]['job_basename'] + job.input_extension
-                    input_directory = not_started_jobs.iloc[i]['job_directory']  
-                    xyz_directory = os.path.join(input_directory,coords_from)
-                    editor.replace_xyz_file(input_filename,input_directory + not_started_jobs.iloc[i]['job_basename'],xyz_filename,xyz_directory)
-                job.submit_job()
+                self.transfer_coords(not_started_jobs.iloc[i],job)
+                
+                job.update_status()
+                job.write_json()
+                job.check_success_static()
+
+                if job.status == 'succeeded':
+                    job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.job_directory) if re.search(r'slurm-\d+.out',fn)])
+                
+                else:
+                    job.submit_job()
+
                 ledger_index = not_started_jobs.index[i]
-                #this seems to be failing
-                if self.debug: print(f"Ledger index: {ledger_index}")
-                if self.debug: print(f"before: {self.ledger.loc[ledger_index]}")
                 if self.debug: print(f"job id: {job.job_id}")
                 self.ledger.loc[ledger_index,'job_id'] = job.job_id
                 if self.debug: print(f"job status: {job.status}")
@@ -272,3 +285,4 @@ class BatchRunner:
             self.write_ledger()
             if self.debug: print('\n\nsleeping\n\n')
             time.sleep(5)
+        print("\n\nEXITING\n\n")
