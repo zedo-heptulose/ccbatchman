@@ -57,7 +57,8 @@ class BatchRunner:
         if self.debug: print(full_path_basename)
         with open(f"{full_path_basename}.json",'r') as jsonfile:
             self.from_dict(json.load(jsonfile))
-
+    
+    #TODO: generalize to all dependencies
     def dependencies_satisfied(self,row):
         completed_jobs = self.completed_jobs()
         if self.debug: print('completed jobs:')
@@ -66,10 +67,16 @@ class BatchRunner:
             if self.debug: print('dependency is nan, satisfied')
             return True
         dependencies = row['coords_from']
-        if self.debug: print(f"dependencies: {dependencies}")
-        if (dependencies in list(completed_jobs['job_basename'])):
-            if self.debug: print(f"returning fact")
-            return True
+        #TODO: fix this, if we ever make dependencies a list
+        if self.debug and type(dependencies) is str: print(
+                f"dependencies: {os.path.abspath(os.path.join(row['job_directory'],dependencies))}"
+                )
+        dependency_abs_path = os.path.abspath(os.path.join(row['job_directory'],row['coords_from']))
+        if len(completed_jobs) != 0:
+            completed_abs_paths = [os.path.abspath(comp_row['job_directory']) for i, comp_row in completed_jobs.iterrows()]
+            if (dependency_abs_path in completed_abs_paths):
+                if self.debug: print(f"returning fact")
+                return True
         if self.debug: print(f"returning cap")
         return False
 
@@ -89,14 +96,17 @@ class BatchRunner:
         for index in range(len(self.jobs) - 1, -1, -1):
             job = self.jobs[index]
             if self.debug: print(f"running OneIter on job with\nbasename{job.job_name}\nid: {job.job_id}")
+            if self.debug: print(f"job directory: {job.directory}")
+
             job.OneIter()
+           
             if self.debug: print(f"job status: {job.status}")
             self.ledger.loc[self.ledger['job_id'] == job.job_id, 'job_status'] = job.status
             if job.status == 'failed' or job.status == 'succeeded':
                 self.jobs.pop(index)
 
     def replace_coords(self,job,xyz_directory,xyz_filename):
-        input_filename = f"{job.basename}{job.extension}"
+        input_filename = f"{job.job_name}{job.input_extension}"
         input_directory = f"{job.directory}"
         xyz_directory = os.path.join(job.directory,xyz_directory)
         editor.replace_xyz_file(input_filename,input_directory,xyz_filename,xyz_directory)
@@ -107,11 +117,11 @@ class BatchRunner:
         if (coords_from and not pd.isna(coords_from)) and (xyz_filename and not pd.isna(xyz_filename)):
             if self.debug: print("calling replace_coords(0,2,3) with args:")
             if self.debug: print(f"""
-                    0: {job} with {job.basename} and {job.directory}
+                    0: {job} with {job.job_name} and {job.directory}
                     1: {coords_from}
                     2: {xyz_filename}
                     """)
-            replace_coords(job,coords_from,xyz_filename)
+            self.replace_coords(job,coords_from,xyz_filename)
 
     def queue_new_jobs(self,**kwargs):
         running_mask = (self.ledger['job_status'] == 'running') |\
@@ -144,13 +154,15 @@ class BatchRunner:
                 if self.debug: print(f"directory set to {job.directory}")
                 
                 self.transfer_coords(not_started_jobs.iloc[i],job)
-                
-                job.update_status()
-                job.write_json()
-                job.check_success_static()
+               
+                try:
+                    job.check_success_static()
+                    job.write_json()
+                except:
+                    print("job.check_success_static() failed, check that output exists")
 
                 if job.status == 'succeeded':
-                    job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.job_directory) if re.search(r'slurm-\d+.out',fn)])
+                    job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.directory) if re.search(r'slurm-\d+.out',fn)])
                 
                 else:
                     job.submit_job()
@@ -202,7 +214,7 @@ class BatchRunner:
                 new_job = job_harness.ORCAHarness()
             new_job.job_id = row['job_id']
             new_job.status = row['job_status']
-            new_job.directory = os.path.join(row['job_directory'],row['job_basename'])
+            new_job.directory = row['job_directory']
             new_job.job_name = row['job_basename']
             new_job.restart = True 
             self.jobs.append(new_job)

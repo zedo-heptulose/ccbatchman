@@ -99,7 +99,7 @@ def generate_batchfile(_configs,root_dir,filename):
         for config in _configs:
             job_basename = config['job_basename']
             #TODO: this must not redundantly inlcude root
-            job_directory = config['write_directory']
+            job_directory = os.path.join(config['write_directory'], config['job_basename'])
             program = config['program']
             coords_from = config.get('!coords_from',None)
             xyz_file = config.get('!xyz_file',None)

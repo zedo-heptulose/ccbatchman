@@ -7,4 +7,5 @@
 
 module load python/3
 export PYTHONUNBUFFERED=1
+export NUMEXPR_MAX_THREADS=1
 python3 batch_runner_testing.py > testing.log

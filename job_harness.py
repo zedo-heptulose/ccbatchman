@@ -171,10 +171,16 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
 
     def parse_output(self,**kwargs):
         debug = kwargs.get('debug',False)
-        data = file_parser.extract_data(
+        for trial in range(0,5):
+            try:
+                data = file_parser.extract_data(
                     f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
                     self.ruleset
                     )
+            except:
+                time.sleep(2)
+                print("in parse_output, file not found. Trial number: {trial}")
+        
         with open(f"{os.path.join(self.directory, self.job_name)}.json",'w') as json_file:
             json.dump(data, json_file)
 
