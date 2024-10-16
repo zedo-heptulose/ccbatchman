@@ -1,0 +1,12 @@
+2024-10-15 23:47:32,234 - INFO - Note: NumExpr detected 16 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2024-10-15 23:47:32,235 - INFO - NumExpr defaulting to 8 threads.
+Traceback (most recent call last):
+  File "/gpfs/home/gdb20/code/batch-manager/batch_runner_testing.py", line 8, in <module>
+    br.MainLoop()
+  File "/gpfs/home/gdb20/code/batch-manager/batch_runner.py", line 286, in MainLoop
+    self.run_jobs_update_ledger()
+  File "/gpfs/home/gdb20/code/batch-manager/batch_runner.py", line 95, in run_jobs_update_ledger
+    job.OneIter()
+  File "/gpfs/home/gdb20/code/batch-manager/job_harness.py", line 195, in OneIter
+    raise ValueError('OneIter called without run_info.json existing')
+ValueError: OneIter called without run_info.json existing

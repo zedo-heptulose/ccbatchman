@@ -7,9 +7,12 @@ import subprocess
 import json
 import time
 
-ORCARULES = 'rules/orca_rules.dat'
-GAUSSRULES = 'rules/gaussian_rules.dat'
-CRESTRULES = 'rules/crest_rules.dat'
+#TODO: FIX THIS
+RULEPATH = '/gpfs/home/gdb20/code/batch-manager/rules/'
+ORCARULES = os.path.join(RULEPATH,'orca_rules.dat')
+GAUSSRULES = os.path.join(RULEPATH,'gaussian_rules.dat')
+CRESTRULES = os.path.join(RULEPATH,'crest_rules.dat')
+XTBRULES = os.path.join(RULEPATH,'xtb_rules.dat')
 
 class JobHarness:
     def __init__(self):
@@ -24,6 +27,7 @@ class JobHarness:
         #flags
         self.ruleset = ORCARULES #used to choose rules for parsing
         self.restart = True #when this flag is enabled, we will look for old temp files and use them
+        self.mode = 'slurm' #slurm or direct
 
     def to_dict(self):
         return {
@@ -102,7 +106,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                 return
     
             elif slurm_status == 'R':
-                self.status == 'running'
+                self.status = 'running'
                 print("returning with running")
                 return
 
@@ -110,47 +114,73 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                 in_progress = False
         
         if not in_progress: #this isn't an if-else because in_progress can be changed in the last conditional
-            #TODO: FIX THIS 
-            temp_status = file_parser.extract_data(
+            #TODO: FIX THIS
+            print(f'updating status with ruleset found at: {self.ruleset}')
+            self.check_success_static()
+            return 
+            
+    def check_success_static(self):
+        '''
+        used for jobs which are not running; they either succeeded or failed
+        this is a separate function so that it can be called on its own, even though the logic is simple
+        '''
+        temp_status = file_parser.extract_data(
                           f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
                           self.ruleset
                           )
-            self.status = self.check_success(temp_status) 
-            return
-
-    def check_success(self, file_parser_output):
-        return 'succeeded' if file_parser_output['completion_success'] else 'failed'
+        self.interpret_fp_out(temp_status)
+    
+    def interpret_fp_out(self, file_parser_output):
+        #this function exists because of edge case where Gaussian runner needs to override this
+        #Gaussian OPT+FREQ jobs output 'normal temination'... twice
+        self.status =( 'succeeded' if file_parser_output['completion_success'] else 'failed')
 
         
     def submit_job(self,**kwargs):
         debug = kwargs.get('debug',False)
         if debug: print(f"In directory {self.directory}")
         if debug: print(f"Executing command: sbatch {self.job_name}.sh")
-        processdata = subprocess.run(f"sbatch {self.job_name}.sh",
-                                     shell=True,
-                                     cwd=self.directory,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT)
-        output = processdata.stdout.decode('utf-8')
-        try:    
-            if debug: print(f"slurm submission output: {output}")
-            if re.search('error:',output):
-                if debug: print(f"Directory: {self.directory}")
-                raise ValueError(f"Bad submission script! output: {output}")
-            self.job_id = int(re.search(r'\d+',output).group(0))
-            self.status = 'pending'
-            self.write_json()
-        except:
-            raise ValueError(f"""Bad submission script!
-                    in directory: {self.directory}
-                    output: {output}""")    
+        if self.mode == 'slurm':
+            processdata = subprocess.run(f"sbatch {self.job_name}.sh",
+                                         shell=True,
+                                         cwd=self.directory,
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.STDOUT)
+            output = processdata.stdout.decode('utf-8')
+            try:    
+                if debug: print(f"slurm submission output: {output}")
+                if re.search('error:',output):
+                    if debug: print(f"Directory: {self.directory}")
+                    raise ValueError(f"Bad submission script! output: {output}")
+                self.job_id = int(re.search(r'\d+',output).group(0))
+                self.status = 'pending'
+                self.write_json()
+            except:
+                raise ValueError(f"""Bad submission script!
+                        in directory: {self.directory}
+                        output: {output}""")    
+                #TODO: FIX THIS
+        elif self.mode == 'direct':
+            raise NotImplementedError('direct run mode not working yet')
+            processdata = subprocess.run(f"chmod +x {self.job_name}.sh",
+                                        shell=True,
+                                        cwd=self.directory)
+            processdata = subprocess.run(f"./{self.job_name}.sh",
+                                        shell=True,
+                                        cwd=self.directory)
 
     def parse_output(self,**kwargs):
         debug = kwargs.get('debug',False)
-        data = file_parser.extract_data(
+        for trial in range(0,5):
+            try:
+                data = file_parser.extract_data(
                     f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
                     self.ruleset
                     )
+            except:
+                time.sleep(2)
+                print("in parse_output, file not found. Trial number: {trial}")
+        
         with open(f"{os.path.join(self.directory, self.job_name)}.json",'w') as json_file:
             json.dump(data, json_file)
 
@@ -206,11 +236,11 @@ class GaussianHarness(JobHarness):
         self.output_extension = '.log'
         self.input_extension = '.gjf'
 
-    def check_success(self, file_parser_output):
+    def interpret_fp_out(self, file_parser_output):
         if file_parser_output['is_opt_freq']:
-            return 'succeeded' if file_parser_output['successful_completion_optfreq'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['successful_completion_optfreq'] else 'failed'
         else:
-            return 'succeeded' if file_parser_output['successful_completion'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['successful_completion'] else 'failed'
 
 class CRESTHarness(JobHarness):
     def __init__(self):
@@ -218,3 +248,12 @@ class CRESTHarness(JobHarness):
         self.ruleset = CRESTRULES
         self.output_extension = '.out'
         self.input_extension = None
+
+class xTBHarness(JobHarness):
+    def __init__(self):
+        JobHarness.__init__(self)
+        self.ruleset = XTBRULES
+        self.output_extension = '.out'
+        self.input_extension = None
+        print(f'xTBHarness initiated, looking for rules at {XTBRULES}')
+        print(f'self.ruleset: {self.ruleset}')

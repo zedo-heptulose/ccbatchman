@@ -4,10 +4,11 @@ import shutil
 import json
 import helpers
 
-CONFIGPATH = './config/'
+CONFIGPATH = '/gpfs/home/gdb20/code/batch-manager/config/'
 ORCACONFIG = 'orca_config.json'
 GAUSSCONFIG = 'gaussian_config.json'
 CRESTCONFIG = 'crest_config.json'
+XTBCONFIG = 'xtb_config.json'
 
 class Input:
     def __init__(self): 
@@ -248,14 +249,20 @@ class GaussianInput(Input):
         self.title = self.title.strip()
         if self.debug: print(f"coordinates:\n{self.coordinates}")
 
+
 class SbatchScript:
     def __init__(self):
         self.directory = ""
         self.basename= ""
         self.sbatch_statements = []
         self.commands = []
-
+    
+    def cleanup(self):
+        self.sbatch_statements = [statement for statement in self.sbatch_statements if statement]
+        self.commands = [command for command in self.commands if command]
+    
     def write_file(self):
+        self.cleanup()
         full_path = os.path.join(self.directory,self.basename) + '.sh'
         with open (full_path,'w') as file:
             file.write('#!/bin/bash\n\n')
@@ -374,11 +381,15 @@ class ORCAInputBuilder(InputBuilder):
             self.config['density_fitting'],
             self.config['dispersion_correction'],
             self.config['bsse_correction'],
-            'UNO' if self.config['natural_orbitals'] else None,
-            self.config['integration_grid'],
             self.config['run_type'],
+            'UNO' if self.config['natural_orbitals'] else None,
+            'MOREAD' if self.config['moread'] else None,
+            self.config['integration_grid'],
+            self.config['scf_tolerance'],
+            self.config['verbosity'],
         ]
-        inp.keywords.append(self.config['other_keywords'])
+        #CHECK HERE FOR ERROR
+        inp.keywords.extend(self.config['other_keywords'])
 
         maxcore = int(self.config['mem_per_cpu_GB']) * 1000 * (3 / 4)
         inp.strings.append(f"%maxcore {int(maxcore)}")
@@ -386,15 +397,16 @@ class ORCAInputBuilder(InputBuilder):
             inp.blocks['pal'] = [f"nprocs {self.config['num_cores']}",]
                 
         for name in self.config['blocks']:
-            inp.blocks['name'] = self.config['blocks'][name]
+            inp.blocks[name] = self.config['blocks'][name]
         if self.config['solvent']:
             inp.blocks['CPCM'] = [
                     'SMD TRUE',
-                    f"SMDSOLVENT {self.config['solvent']}", 
+                    f"SMDSOLVENT \"{self.config['solvent']}\"", 
                     ]
 
         if self.config['broken_symmetry']:
             if not inp.blocks.get('scf',None):
+                #TODO: bruh. look at this duuuude
                 inp.blocks['scf'] = ['brokensym 1,1']
             else:
                 condition = False
@@ -455,7 +467,7 @@ class CRESTInputBuilder(InputBuilder):
         xyz_file = self.config['xyz_file']
         
         options = []
-        if self.config['functional'] in ['gfn2','gfn0','gfnff']:
+        if self.config['functional'] in ['gfn2','gfn0','gfnff','gfn2//gfnff']:
             options.append(f"--{self.config['functional']}")
         else:
             print('Warning: invalid functional, defaulting to gfn2')
@@ -471,6 +483,10 @@ class CRESTInputBuilder(InputBuilder):
             options.append(f"--{self.config['quick']}")
         if self.config['reopt']:
             options.append('--prop reopt')
+        
+        if self.config['noreftopo']:
+            options.append('--noreftopo')
+            
         if self.config['other_keywords']:
             for keyword in self.config['other_keywords']:
                 options.append(f"--{keyword}")
@@ -480,3 +496,45 @@ class CRESTInputBuilder(InputBuilder):
 
     def build_input(self):
         return None
+
+
+class xTBInputBuilder(InputBuilder):
+    def __init__(self):
+        self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,XTBCONFIG))
+
+    def submit_line(self):
+        command = self.config['path_to_program']
+        basename = self.config['job_basename']
+        xyz_file = self.config['xyz_file']
+        
+        options = []
+        functional = self.config['functional']
+        if functional in ['gfn2','gfn0','gfnff','2',2,'0',0,'ff']:
+            functional = functional[3:] if str(functional).startswith('gfn') else functional
+            options.append(f"--gfn {functional}")
+        else:
+            print('Warning: invalid functional, defaulting to gfn2')
+            options.append('--gfn 2')
+
+        options.append(f"--chrg {self.config['charge'] if self.config['charge'] else 0}")
+        
+        if self.config['uks']:
+            options.append(f"--uhf {self.config['spin_multiplicity'] - 1}")
+        
+        if self.config['solvent']:
+            options.append(f"--alpb {self.config['solvent']}")
+       
+        if self.config['run_type']:
+            options.append(f"--{self.config['run_type']}")
+            
+        if self.config['other_keywords']:
+            for keyword in self.config['other_keywords']:
+                options.append(f"--{keyword}")
+
+        
+        submit_line = f"{command} {xyz_file} > {basename}.out " + " ".join(options)
+        return submit_line
+        
+    def build_input(self):
+        return None
+

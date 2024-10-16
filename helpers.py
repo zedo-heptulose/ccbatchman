@@ -1,6 +1,9 @@
 import json
+import copy
 
-def merge_dicts(d1, d2):
+def merge_dicts(_d1, _d2):
+    d1 = copy.deepcopy(_d1)
+    d2 = copy.deepcopy(_d2)
     """Merge two dictionaries, overwriting string, number, and bool values,
     and combining nested dictionary and list objects"""
     merged = {**d1}  # Start with a copy of the first dictionary

@@ -1,30 +1,25 @@
 {
-  "path_to_program": "/gpfs/home/gdb20/.conda/envs/crest3/bin/xtb",
+  "program" : "xtb",
+  "version" : "6.6.1",
+  "path_to_program": "xtb",
   "pre_submit_lines": [
-	  "ulimit -s unlimited",
-	  "export OMP_MAX_ACTIVE_LEVELS=1"
+	  "conda init bash",
+	  "source ~/.bashrc",
+	  "conda activate crest3"
   	],
   "post_submit_lines": null,
   "num_cores": 4,
-  "mem_per_cpu_GB": 4,
+  "mem_per_cpu_GB": 2,
   "runtime": "0-00:05:00",
   "write_directory": "./test/",
-  "job_name": "test",
+  "job_basename": "test",
   "xyz_directory" : "./",
   "xyz_file": "test.xyz",
   "charge": 0,
   "spin_multiplicity": 1,
   "uks": true,
-  "broken_symmetry": false,
   "run_type":"opt",
   "functional": "gfn2",
-  "basis": null,
-  "aux_basis": null,
-  "dispersion_correction": null,
-  "bsse_correction":null,
-  "density_fitting": null,
-  "natural_orbitals": false,
-  "integration_grid": null,
-  "other_keywords": [],
-  "blocks": {}
+  "solvent" : null,
+  "other_keywords": ["cma"]
 }
