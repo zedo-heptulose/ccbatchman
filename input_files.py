@@ -15,12 +15,6 @@ class Input:
         self.directory = ""
         self.basename = ""
         self.extension = ""
-        self.keywords = []
-        self.charge = 0
-        self.multiplicity = 1
-        self.xyzfile = "" 
-        self.coordinates = []
-        self.debug = False
 
     def cleanup(self):
         raise NotImplementedError()
@@ -31,10 +25,20 @@ class Input:
     def load_file(self,filename,directory=''):
         raise NotImplementedError()
 
-
-class ORCAInput(Input):
+class CCInput(Input):
     def __init__(self):
         Input.__init__(self)
+        self.keywords = []
+        self.charge = 0
+        self.multiplicity = 1
+        self.xyzfile = "" 
+        self.coordinates = []
+        self.debug = False
+
+
+class ORCAInput(CCInput):
+    def __init__(self):
+        CCInput.__init__(self)
         self.strings = []
         self.blocks = {}
         self.extension = '.inp'
@@ -63,16 +67,13 @@ class ORCAInput(Input):
             file.write('\n')
             file.write(f"* xyzfile {self.charge} {self.multiplicity} {self.xyzfile} \n\n")
 
-    def load_file(self,filename,directory=''):
+    def load_file(self,path):
+        path = os.path.normpath(path)
+        filename = os.path.basename(path)
         self.basename = os.path.splitext(filename)[0]
-        if directory.startswith('./'):
-            directory = directory[2:]
-        if not directory.startswith('/'):
-            directory = os.path.join(os.getcwd(),directory)
-        self.directory = directory
-        if directory:
-            filename = os.path.join(directory,filename)
-        with open(filename,'r') as input_file:
+        self.directory = os.path.dirname(path)
+        
+        with open(path,'r') as input_file:
             lines = input_file.readlines()
              
         self.keywords = []
@@ -123,7 +124,7 @@ class ORCAInput(Input):
                     self.xyzfile = re.search(r'(\S+\.xyz\b)',line).group(1)
                 if self.debug: print(f'charge: {self.charge} multiplicity: {self.multiplicity} xyz fn: {self.xyzfile}')
 
-class GaussianInput(Input):
+class GaussianInput(CCInput):
     def __init__(self):
         Input.__init__(self)
         self.nprocs = 1
@@ -160,16 +161,14 @@ class GaussianInput(Input):
             gjffile.writelines(self.coordinates)
             gjffile.write(f"\n\n")
     
-    def load_file(self,filename,directory=''):
+    def load_file(self,path):
         #BE WARY, WE MUST USE ABSOLUTE PATHS WHEN WORKING WITH GAUSSIAN
+        path = os.path.normpath(path)
+        filename = os.path.basename(path)
         self.basename = os.path.splitext(filename)[0]
-        if directory.startswith('./'):
-            directory = directory[2:]
-        if not directory.startswith('/'):
-            directory = os.path.join(os.getcwd(),directory)
-        self.directory = directory
-        filename = os.path.join(directory,filename)
-        with open(filename,'r') as input_file:
+        self.directory = os.path.dirname(path)
+
+        with open(path,'r') as input_file:
             lines = input_file.readlines()
 
         self.keywords = []
@@ -250,12 +249,18 @@ class GaussianInput(Input):
         if self.debug: print(f"coordinates:\n{self.coordinates}")
 
 
-class SbatchScript:
+
+
+class SbatchScript(Input):
     def __init__(self):
-        self.directory = ""
-        self.basename= ""
+        Input.__init__(self)
+        self.extension = '.sh'
         self.sbatch_statements = []
         self.commands = []
+
+    @property
+    def full_path(self):
+        return os.path.join(self.directory,self.basename) + '.sh'
     
     def cleanup(self):
         self.sbatch_statements = [statement for statement in self.sbatch_statements if statement]
@@ -263,14 +268,59 @@ class SbatchScript:
     
     def write_file(self):
         self.cleanup()
-        full_path = os.path.join(self.directory,self.basename) + '.sh'
-        with open (full_path,'w') as file:
+        with open (self.full_path,'w') as file:
             file.write('#!/bin/bash\n\n')
             for statement in self.sbatch_statements:
                 file.write(f'#SBATCH {statement.strip()}\n')
             file.write('\n')
             for command in self.commands:
                 file.write(f'{command.strip()}\n')
+
+    def reset(self):
+        self.directory = ""
+        self.basename = ""
+        self.sbatch_statements = []
+        self.commands = []
+    
+    def load_file(self,path):
+        
+        with open(path,'r') as file:
+            lines = file.readlines()
+        for line in lines:
+            if line.strip() == '#!/bin/bash':
+                pass
+            elif line.startswith('#SBATCH'):
+                self.sbatch_statements.append(line[7:].strip())
+            elif line.strip():
+                self.commands.append(line.strip())
+
+
+#for now, this is kinda a hack that can't be
+#modified beyond just changing the coordinates
+class xTBScript(SbatchScript):
+    def __init__(self):
+        SbatchScript.__init__(self)
+        self.xyzfile = ""
+
+    def write_file(self):
+        new_commands = []
+        for command in self.commands.copy():
+            if match := re.match(r'(?:\b)([A-Za-z0-9_+-]+.xyz)',command):
+                command = re.sub(match.group(1),self.xyzfile,command)
+            new_commands.append(command)
+        self.commands = new_commands
+        SbatchScript.write_file(self)
+    
+    def load_file(self,path):
+        SbatchScript.load_file(self,path)
+        for command in self.commands:
+            if match := re.match(r'(?:\b)([A-Za-z0-9_+-]+.xyz)',command):
+                self.xyzfile = match.group(1)
+
+
+#we don't use one of these for a CREST job, because it doesn't
+#make sense (at the moment, with our current workflows) to 
+#change the coordinates of a crest job
 
 
 class Job:

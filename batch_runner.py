@@ -61,8 +61,6 @@ class BatchRunner:
     #TODO: generalize to all dependencies
     def dependencies_satisfied(self,row):
         completed_jobs = self.completed_jobs()
-        if self.debug: print('completed jobs:')
-        if self.debug: print(f"{completed_jobs}")
         if pd.isna(row['coords_from']):
             if self.debug: print('dependency is nan, satisfied')
             return True
@@ -75,9 +73,9 @@ class BatchRunner:
         if len(completed_jobs) != 0:
             completed_abs_paths = [os.path.abspath(comp_row['job_directory']) for i, comp_row in completed_jobs.iterrows()]
             if (dependency_abs_path in completed_abs_paths):
-                if self.debug: print(f"returning fact")
+                if self.debug: print(f"dependencies satisfied")
                 return True
-        if self.debug: print(f"returning cap")
+        if self.debug: print(f"dependencies not satisfied")
         return False
 
 
@@ -105,24 +103,55 @@ class BatchRunner:
             if job.status == 'failed' or job.status == 'succeeded':
                 self.jobs.pop(index)
 
-    def replace_coords(self,job,xyz_directory,xyz_filename):
-        input_filename = f"{job.job_name}{job.input_extension}"
-        input_directory = f"{job.directory}"
-        xyz_directory = os.path.join(job.directory,xyz_directory)
-        editor.replace_xyz_file(input_filename,input_directory,xyz_filename,xyz_directory)
 
+    
     def transfer_coords(self,ledger_row,job):
-        coords_from = ledger_row['coords_from']
+        xyz_directory = ledger_row['coords_from']
         xyz_filename = ledger_row['xyz_filename']
-        if (coords_from and not pd.isna(coords_from)) and (xyz_filename and not pd.isna(xyz_filename)):
-            if self.debug: print("calling replace_coords(0,2,3) with args:")
-            if self.debug: print(f"""
-                    0: {job} with {job.job_name} and {job.directory}
-                    1: {coords_from}
-                    2: {xyz_filename}
-                    """)
-            self.replace_coords(job,coords_from,xyz_filename)
+        
+        if not xyz_directory or pd.isna(xyz_directory)\
+        or not xyz_filename or pd.isna(xyz_filename):
+            return
+        #todo: jobs should have basename and input_filename properties
+        input_directory = job.directory
+        input_filename = job.job_name + job.input_extension
+        input_path = os.path.join(input_directory,input_filename)
+        
+        xyz_path = os.path.join(input_directory,xyz_directory,xyz_filename)
+        xyz_path = os.path.normpath(xyz_path)
 
+
+        input_program = job.program
+        
+        if self.debug: print("calling replace_xyz_file({0},{1},{2}) with args:")
+        if self.debug: print(f"""
+                    0: {input_path}
+                    1: {xyz_path}
+                    2: {input_program}
+                    """)
+        xyz_directory = os.path.join(job.directory,xyz_directory)
+        editor.replace_xyz_file(
+                input_path,xyz_path,input_program
+        )
+
+    
+    def create_job_harness(self,program,**kwargs):
+        if program.lower() == 'gaussian':
+            return job_harness.GaussianHarness()
+            if self.debug: print('Using Gaussian parsing rules')
+        elif program.lower() == 'orca':
+            return job_harness.ORCAHarness()
+            if self.debug: print('Using ORCA parsing rules')
+        elif program.lower() == 'crest':
+            return job_harness.CRESTHarness()
+            if self.debug: print('Using CREST parsing rules')
+        elif program.lower() == 'xtb':
+            return job_harness.xTBHarness()
+            if self.debug: print('Using xTB parsing rules')
+        else:
+            raise ValueError('Invalid Program Specified')
+        
+    
     def queue_new_jobs(self,**kwargs):
         running_mask = (self.ledger['job_status'] == 'running') |\
                        (self.ledger['job_status'] == 'pending') 
@@ -135,19 +164,8 @@ class BatchRunner:
             if self.debug: print(f"available jobs:\n{not_started_jobs}")
             for i in range(min(self.max_jobs_running-num_running_jobs,
                                len(not_started_jobs))):
-                if not_started_jobs.iloc[i]['program'].lower() == 'gaussian':
-                    job = job_harness.GaussianHarness()
-                    if self.debug: print('Using Gaussian parsing rules')
-                elif not_started_jobs.iloc[i]['program'].lower() == 'orca':
-                    job = job_harness.ORCAHarness()
-                    if self.debug: print('Using ORCA parsing rules')
-                elif not_started_jobs.iloc[i]['program'].lower() == 'crest':
-                    job = job_harness.CRESTHarness()
-                    if self.debug: print('Using CREST parsing rules')
-                else:
-                    if self.debug: print(f"Warning: No program read. Parameter set as {not_started_jobs.iloc[i]['program']}")
-                    if self.debug: print(f"Assuming ORCA Input")
-                    job = job_harness.ORCAHarness()
+                job = self.create_job_harness(not_started_jobs.iloc[i]['program'])
+                
                 job.job_name = not_started_jobs.iloc[i]['job_basename']
                 #jobs in directory with their basename, and their files have this basename
                 job.directory = not_started_jobs.iloc[i]['job_directory']
@@ -200,18 +218,8 @@ class BatchRunner:
         current_job_mask = (self.ledger['job_id'] != -1)
         
         for index, row in self.ledger[current_job_mask].iterrows():
-            if row['program'].lower() == 'gaussian':
-                new_job = job_harness.GaussianHarness()
-                if self.debug: print('Gaussian!')
-            elif row['program'].lower() == 'orca':
-                if self.debug: print('ORCA!')
-                new_job = job_harness.ORCAHarness()
-            elif row['program'].lower() == 'crest':
-                if self.debug: print('CREST!')
-                new_job = job_harness.CRESTHarness()
-            else:
-                if self.debug: print('JOB PROGRAM NOT SPECIFIED, ASSUMING ORCA')
-                new_job = job_harness.ORCAHarness()
+            new_job = self.create_job_harness(row['program'])
+            
             new_job.job_id = row['job_id']
             new_job.status = row['job_status']
             new_job.directory = row['job_directory']

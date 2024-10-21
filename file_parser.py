@@ -343,7 +343,7 @@ def extract_data(read_filename, ruleset_filename = "data/rules/GAU.rules"):
 			for action in rules_dict[key]:
 				varname = action[0]
 				flag = action[3]
-				if not file_data.get(varname):
+				if file_data.get(varname,None) is None:
 					#print('varname not used in file_data yet')
 					if re.search('not_found',flag):
 						#print('not_found in flag')

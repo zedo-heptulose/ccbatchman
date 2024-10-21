@@ -16,6 +16,28 @@ import copy
 
 FLAGS = ['!directories']
 
+def do_everything(config_list,root_dir):
+    """
+    strings together the functions always used together
+    """
+    configs,flags = sort_flags(config_list)
+    paths = iterate_inputs(configs,flags)
+    write_input_array(paths,root_dir)
+    write_batchfile(paths,root_dir,'batchfile.csv')
+
+def xyz_files_from_directory(directory):
+    molec_list = os.listdir(directory)
+    molec_list = [mol for mol in molec_list if mol.endswith('.xyz')]
+    molecule_dict = {}
+    for xyz_filename in molec_list:
+        basename = os.path.splitext(xyz_filename)[0]
+        print(basename)
+        molecule_dict[basename] = {
+            'xyz_directory' : os.path.abspath(directory),
+            'xyz_file' : xyz_filename,
+        }
+    return molecule_dict
+
 def sort_flags(list_of_dict_of_dicts):
     mod_list = copy.deepcopy(list_of_dict_of_dicts)
     flag_array = [] #list of lists
@@ -26,9 +48,8 @@ def sort_flags(list_of_dict_of_dicts):
                 del mod_list[i][k]
                 if k == '!directories' and v:
                     flag_array[i].append(k)
-                    
+                      
     return (mod_list,flag_array)
-
 
 def iterate_inputs(list_of_dict_of_dicts,flag_array):
     all_paths = itertools.product(*[d.keys() for d in list_of_dict_of_dicts])
@@ -40,10 +61,13 @@ def iterate_inputs(list_of_dict_of_dicts,flag_array):
         #print(key_path)
         for index, key, flags in zip(range(0,len(key_path)),key_path,flag_array):
             #print("iterating")
+            name_list.append(key)
             if '!directories' in flags:
-                config_dict['write_directory'] = os.path.join(config_dict.get('write_directory',''),key)
-            else:
-                name_list.append(key)
+                config_dict['write_directory'] = os.path.join(
+                    config_dict.get('write_directory',''),
+                    '_'.join(name_list)
+                )
+                name_list = []
             try:
                 config_dict = helpers.merge_dicts(config_dict,list_of_dict_of_dicts[index][key])
                 #print(f"CONFIG DICT: \n{config_dict}")
@@ -62,9 +86,9 @@ def iterate_inputs(list_of_dict_of_dicts,flag_array):
 
 def write_input_array(_configs,root_directory):
     if type(_configs) is dict:
-        configs = _configs.values()
+        configs = copy.deepcopy(_configs.values())
     else:
-        configs = _configs
+        configs = copy.deepcopy(_configs)
     for config in configs:
         #print(f"CONFIG: \n{config}")
         if config['program'].lower() == 'orca':
@@ -73,6 +97,8 @@ def write_input_array(_configs,root_directory):
             inp = input_files.GaussianInputBuilder()
         elif config['program'].lower() == 'crest':
             inp = input_files.CRESTInputBuilder()
+        elif config['program'].lower() == 'xtb':
+            inp = input_files.xTBInputBuilder()
         else:
             raise ValueError('unsupported program')
         config['write_directory'] = os.path.join(root_directory,config['write_directory'],config['job_basename'])
@@ -82,7 +108,7 @@ def write_input_array(_configs,root_directory):
         del job
         del inp
 
-def generate_batchfile(_configs,root_dir,filename):
+def write_batchfile(_configs,root_dir,filename):
     path = os.path.join(root_dir,filename)
     existed = os.path.exists(path)
     append_or_write = 'w'

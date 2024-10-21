@@ -16,6 +16,8 @@ XTBRULES = os.path.join(RULEPATH,'xtb_rules.dat')
 
 class JobHarness:
     def __init__(self):
+        self.debug = False
+        self.silent = False
         #filesystem
         self.directory = './' #directory where input files are located
         self.job_name = '' #job_name should be the root of the input file and .sh file
@@ -99,15 +101,15 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                 if debug: print(f"Bad capture of squeue response: Attempt {attempt + 1}")
     
         if in_progress:
-            print(f'slurm status:{slurm_status}')   
+            if not self.silent: print(f'slurm status:{slurm_status}')   
             if slurm_status == 'PD':
                 self.status = 'pending'
-                print("returning pending")
+                if not self.silent: print("returning pending")
                 return
     
             elif slurm_status == 'R':
-                self.status = 'running'
-                print("returning with running")
+                if not self.silent: self.status = 'running'
+                if not self.silent: print("returning with running")
                 return
 
             else:
@@ -115,7 +117,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         
         if not in_progress: #this isn't an if-else because in_progress can be changed in the last conditional
             #TODO: FIX THIS
-            print(f'updating status with ruleset found at: {self.ruleset}')
+            if not self.silent: print(f'updating status with ruleset found at: {self.ruleset}')
             self.check_success_static()
             return 
             
@@ -171,16 +173,24 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
 
     def parse_output(self,**kwargs):
         debug = kwargs.get('debug',False)
+        path = os.path.join(self.directory,self.job_name) + self.output_extension
+        data = None
         for trial in range(0,5):
             try:
                 data = file_parser.extract_data(
-                    f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
+                    path,
                     self.ruleset
                     )
+                break
+
             except:
                 time.sleep(2)
                 print("in parse_output, file not found. Trial number: {trial}")
         
+        if not data:
+            print(f"Attempted to read output at {path}.")
+            raise RuntimeError('parse_output failed.')
+
         with open(f"{os.path.join(self.directory, self.job_name)}.json",'w') as json_file:
             json.dump(data, json_file)
 
@@ -228,6 +238,7 @@ class ORCAHarness(JobHarness):
         self.ruleset = ORCARULES
         self.output_extension = '.out'
         self.input_extension = '.inp'
+        self.program = 'orca'
 
 class GaussianHarness(JobHarness):
     def __init__(self):
@@ -235,7 +246,8 @@ class GaussianHarness(JobHarness):
         self.ruleset = GAUSSRULES
         self.output_extension = '.log'
         self.input_extension = '.gjf'
-
+        self.program = 'gaussian'
+    
     def interpret_fp_out(self, file_parser_output):
         if file_parser_output['is_opt_freq']:
             self.status = 'succeeded' if file_parser_output['successful_completion_optfreq'] else 'failed'
@@ -247,13 +259,16 @@ class CRESTHarness(JobHarness):
         JobHarness.__init__(self)
         self.ruleset = CRESTRULES
         self.output_extension = '.out'
-        self.input_extension = None
+        self.input_extension = '.sh'
+        self.program = 'crest'
 
 class xTBHarness(JobHarness):
     def __init__(self):
         JobHarness.__init__(self)
         self.ruleset = XTBRULES
         self.output_extension = '.out'
-        self.input_extension = None
-        print(f'xTBHarness initiated, looking for rules at {XTBRULES}')
-        print(f'self.ruleset: {self.ruleset}')
+        self.input_extension = '.sh'
+        self.program = 'xtb'
+        
+        if self.debug: print(f'xTBHarness initiated, looking for rules at {XTBRULES}')
+        if self.debug: print(f'self.ruleset: {self.ruleset}')
