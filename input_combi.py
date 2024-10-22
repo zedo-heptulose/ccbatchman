@@ -31,7 +31,7 @@ def xyz_files_from_directory(directory):
     molecule_dict = {}
     for xyz_filename in molec_list:
         basename = os.path.splitext(xyz_filename)[0]
-        print(basename)
+        #print(basename)
         molecule_dict[basename] = {
             'xyz_directory' : os.path.abspath(directory),
             'xyz_file' : xyz_filename,
@@ -104,7 +104,12 @@ def write_input_array(_configs,root_directory):
         config['write_directory'] = os.path.join(root_directory,config['write_directory'],config['job_basename'])
         inp.change_params(config)
         job = inp.build()
-        job.create_directory()
+        #THIS NEEDS TO FAIL IF THE DIRECTORY ALREADY EXISTS
+        try:
+            job.create_directory()
+        except:
+            print(f"Job Directory NOT WRITTEN at {job.directory}")
+        
         del job
         del inp
 
@@ -112,8 +117,15 @@ def write_batchfile(_configs,root_dir,filename):
     path = os.path.join(root_dir,filename)
     existed = os.path.exists(path)
     append_or_write = 'w'
+    written_lines = {} #store every line as a key in a dict, True if written doesn't exist if not
     if existed:
         append_or_write = 'a'
+        #
+        with open(path,'r') as batchfile:
+            lines = batchfile.readlines()
+        for line in lines:
+            written_lines[line] = True
+
     with open(path,append_or_write) as batchfile:
         if not existed:
             batchfile.write(
@@ -132,7 +144,10 @@ def write_batchfile(_configs,root_dir,filename):
             pipe_string = ''
             if coords_from and xyz_file:
                 pipe_string = f"coords{{{coords_from},{xyz_file}}}"
-            batchfile.write(
-                f"{job_directory}|{job_basename}|{program}|{pipe_string}\n"
-            )
+        
+            line = f"{job_directory}|{job_basename}|{program}|{pipe_string}\n"
 
+            #check that we haven't already written this
+            if not written_lines.get(line,False):
+                batchfile.write(line)
+                written_lines[line] = True #mark this line as already written 

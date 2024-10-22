@@ -1,5 +1,7 @@
 import file_parser
 
+import postprocessing
+
 import os
 import re
 import shutil
@@ -135,7 +137,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
     def interpret_fp_out(self, file_parser_output):
         #this function exists because of edge case where Gaussian runner needs to override this
         #Gaussian OPT+FREQ jobs output 'normal temination'... twice
-        self.status =( 'succeeded' if file_parser_output['completion_success'] else 'failed')
+        self.status =( 'succeeded' if file_parser_output['success'] else 'failed')
 
         
     def submit_job(self,**kwargs):
@@ -196,6 +198,8 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
 
     def OneIter(self,**kwargs):
         if self.status == 'failed' or self.status == 'completed':
+            self.parse_output() #maybe have a flag for whether to do this?
+            #right now, I need this to happen
             return self.status
         debug = kwargs.get('debug',False)
         data_path = os.path.join(self.directory,'run_info.json')
@@ -240,6 +244,31 @@ class ORCAHarness(JobHarness):
         self.input_extension = '.inp'
         self.program = 'orca'
 
+
+    def parse_output(self,**kwargs):
+        debug = kwargs.get('debug',False)
+        path = os.path.join(self.directory,self.job_name) + self.output_extension
+        data = None
+        opp = postprocessing.OrcaPostProcessor(self.directory,self.job_name)
+        
+        for trial in range(0,5):
+            try:
+                opp.pp_routine()
+                return
+
+            except:
+                time.sleep(2)
+                print("in ORCAHarness.parse_output, file not found. Trial number: {trial}")
+        
+        #if we got here, pp_routine failed five times
+        print(f"In job_harness.ORCAHarness.parse_output:")
+        print(f"with dirname {self.directory}")
+        print(f"and basename {self.job_name}")
+        print(f"parse_output failed")
+        raise RuntimeError('parse_output failed.')
+
+
+
 class GaussianHarness(JobHarness):
     def __init__(self):
         JobHarness.__init__(self)
@@ -250,9 +279,9 @@ class GaussianHarness(JobHarness):
     
     def interpret_fp_out(self, file_parser_output):
         if file_parser_output['is_opt_freq']:
-            self.status = 'succeeded' if file_parser_output['successful_completion_optfreq'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['success_opt_freq'] else 'failed'
         else:
-            self.status = 'succeeded' if file_parser_output['successful_completion'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['success'] else 'failed'
 
 class CRESTHarness(JobHarness):
     def __init__(self):

@@ -305,7 +305,8 @@ class xTBScript(SbatchScript):
     def write_file(self):
         new_commands = []
         for command in self.commands.copy():
-            if match := re.match(r'(?:\b)([A-Za-z0-9_+-]+.xyz)',command):
+            match = re.match(r'(?:\b)([A-Za-z0-9_+-]+.xyz)',command)
+            if match:
                 command = re.sub(match.group(1),self.xyzfile,command)
             new_commands.append(command)
         self.commands = new_commands
@@ -314,7 +315,8 @@ class xTBScript(SbatchScript):
     def load_file(self,path):
         SbatchScript.load_file(self,path)
         for command in self.commands:
-            if match := re.match(r'(?:\b)([A-Za-z0-9_+-]+.xyz)',command):
+            match = re.match(r'(?:\b)([A-Za-z0-9_+-]+.xyz)',command)
+            if match:
                 self.xyzfile = match.group(1)
 
 
@@ -333,8 +335,12 @@ class Job:
         self.xyz = "test.xyz"
         
     def create_directory(self):
+        #don't overwrite existing jobs!!!!
+        if os.path.exists(self.directory):
+            raise ValueError('input_files.Job tried to overwrite existing directory')
+        
         if self.debug: print(f"making directory: {self.directory}")
-        os.makedirs(self.directory,exist_ok=True)
+        os.makedirs(self.directory)
         source_file = os.path.join(self.xyz_directory,self.xyz)
         if self.debug: print(f"xyz source file: {source_file}")
         dest_file = os.path.join(self.directory,self.xyz)

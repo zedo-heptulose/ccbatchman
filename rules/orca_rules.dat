@@ -1,12 +1,17 @@
-SP_energy_au ; FINAL SINGLE POINT ENERGY; last; float
-enthalpy_au  ; Total Enthalpy           ; last; float
-free_energy_au ; Final Gibbs free energy ; last; float
-gibbs_minus_E_el_au ; G-E\s*\(el\) ; last ; float
-completion_success ; ORCA TERMINATED NORMALLY ; found
-geometry_success ; \*\*\* OPTIMIZATION RUN DONE \*\*\* ; found
-SCF_fail ; SCF NOT CONVERGED ; found
+E_el_au ; FINAL SINGLE POINT ENERGY; last; float
+H_au  ; Total Enthalpy           ; last; float
+G_au ; Final Gibbs free energy ; last; float
+TS_au ; Final\s+entropy\s+term  ;last ; float 
+__after__ ; DFT DISPERSION CORRECTION 
+  E_dispersion_au ; Dispersion\s+correction  ; last ; float
+  E_gCP_au ; gCP\s+correction ; last ; float
+__before__ ; FINAL SINGLE POINT ENERGY
+G_minus_E_el_au ; G-E\s*\(el\) ; last ; float
+success ; ORCA TERMINATED NORMALLY ; found
+opt_done ; \*\*\* OPTIMIZATION RUN DONE \*\*\* ; found
+scf_fail ; SCF NOT CONVERGED ; found
 __after__ ; VIBRATIONAL\s+FREQUENCIES
-    imaginary_frequency; -\s*\d+\.\d+\s*cm\*\*-1 ; found
+    imaginary_frequencies; -\s*\d+\.\d+\s*cm\*\*-1 ; found
 __before__ ; NORMAL\s+MODES
 __after__ ; TD-DFT/TDA\s+EXCITED\s+STATES
     first_excite_E_au ; STATE\s+1 ; first ; float
@@ -14,6 +19,6 @@ __before__ ; TD-DFT/TDA-EXCITATION\s+SPECTRA
 __after__ ; BROKEN\s+SYMMETRY\s+MAGNETIC\s+
     E_high_spin_au ; E\s*\(High-Spin\); first; float
     E_broken_sym_au ; E\s*\(BrokenSym\); first; float
-    <S**2>_T ; <S\*\*2>\s*\(High-Spin\); first; float
-    <S**2>_BS ; <S\*\*2>\s*\(BrokenSym\);first; float
+    <S^2>_HS ; <S\*\*2>\s*\(High-Spin\); first; float
+    <S^2>_BS ; <S\*\*2>\s*\(BrokenSym\);first; float
 __before__ ; Spin-Hamiltonian\s+Analysis

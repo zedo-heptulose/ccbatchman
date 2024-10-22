@@ -8,4 +8,4 @@
 module load python/3
 export PYTHONUNBUFFERED=1
 export NUMEXPR_MAX_THREADS=8
-python3 mike_prod.py >> mike_prod.log
+python3 mike_crude.py > mike_crude.log

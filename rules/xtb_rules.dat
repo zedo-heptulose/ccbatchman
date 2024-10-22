@@ -1,7 +1,8 @@
-SP_energy_au; TOTAL ENERGY ; last ; float
-bandgap_ev ; HOMO-LUMO GAP ; last ; float
-completion_success ; \*\s+finished\s+run\s+on\s+ ; found
+E_el_au; TOTAL ENERGY ; last ; float
+E_homo_lumo_ev ; HOMO-LUMO GAP ; last ; float
+success ; \*\s+finished\s+run\s+on\s+ ; found
 
 __after__ ; RELAXED SCAN
     step_{}_energy_au ; current energy: ; list first ; float
 __before__ ; Property Printout
+

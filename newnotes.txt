@@ -31,4 +31,6 @@ ensure we ask for printout of UNOs
 would prefer to run these depth first, I can't do that much with 100 CREST runs..
 maybe we can store jobs in a tree structure?
 
-
+BUGS:
+we run into the following problem:
+on restart, the old ledger should overwrite the batchfile entries, but doesn't happen

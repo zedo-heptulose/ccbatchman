@@ -208,24 +208,7 @@ class BatchRunner:
         ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
         self.ledger.to_csv(ledger_path,sep='|',index=False)
 
-    def restart_from_ledger(self,**kwargs):
-        ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
-        if not os.path.exists(ledger_path):
-            raise ValueError('ledger path does not exist')
-        self.ledger = pd.read_csv(ledger_path,sep='|')
-        if self.debug: print(f"Ledger loaded:\n{self.ledger}")
-        #this also needs to create job objects for each existing job
-        current_job_mask = (self.ledger['job_id'] != -1)
-        
-        for index, row in self.ledger[current_job_mask].iterrows():
-            new_job = self.create_job_harness(row['program'])
-            
-            new_job.job_id = row['job_id']
-            new_job.status = row['job_status']
-            new_job.directory = row['job_directory']
-            new_job.job_name = row['job_basename']
-            new_job.restart = True 
-            self.jobs.append(new_job)
+
 
     def read_batchfile(self):
         '''
@@ -264,8 +247,55 @@ class BatchRunner:
         #TODO: more general piping here
         self.ledger[['coords_from','xyz_filename']] = batch['pipe'].apply(self.parse_pipe).apply(pd.Series)
         
-        return self.ledger
+        return self
 
+    
+    def read_old_ledger(self,**kwargs):
+        ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
+        if not os.path.exists(ledger_path):
+            raise ValueErrors('ledger path does not exist')
+        old_ledger = pd.read_csv(ledger_path,sep='|')
+        if self.debug: print(f"Old ledger loaded with filename:\n{self.ledger}")
+            
+        self.ledger = pd.concat([self.ledger, old_ledger])\
+        .drop_duplicates(subset=['job_directory', 'job_basename'], keep='last')
+        #I think this is the one! let's try it in a sec
+        return self
+    
+    def restart_job_harnesses(self,**kwargs):
+        #this is a bad way to do this and causes issues, presently.
+        #would rather just update job status on a case by case basis...
+        current_job_mask = (self.ledger['job_id'] != -1)
+        
+        for index, row in self.ledger[current_job_mask].iterrows():
+            new_job = self.create_job_harness(row['program'])
+            
+            new_job.job_id = row['job_id']
+            new_job.status = row['job_status']
+            new_job.directory = row['job_directory']
+            new_job.job_name = row['job_basename']
+            new_job.restart = True 
+            self.jobs.append(new_job)
+ 
+    def initialize_run(self):
+        '''
+        this reads the batchfile into a ledger in memory.
+        If restart is enabled, we overwrite any conflicts using the old ledger.
+        That is primarily to allow us to add jobs as we please, without messing everything up.
+        '''
+        self.read_batchfile()
+        if self.debug: print("LEDGER AFTER READING BATCHFILE")
+        if self.debug: self.ledger.to_csv('lar.csv')
+        
+        if self.restart:
+            if self.debug: print("READING OLD LEDGER AND MERGING")
+            self.read_old_ledger()
+            if self.debug: print("LEDGER AFTER MERGE:")
+            if self.debug: self.ledger.to_csv('lam.csv')
+            if self.debug: print("RESTARTING OLD JOB HARNESSES")
+            self.restart_job_harnesses()
+            
+        return self
 
     def parse_pipe(self,pipe_command):
         if self.debug: print(pipe_command)
@@ -285,24 +315,29 @@ class BatchRunner:
         else:
             raise NotImplementedError(f"No pipe keyword for {command}")
 
-
+    def try_parse_all_jobs(self,**kwargs):
+        for index, row in self.ledger.iterrows():
+            dirname = row['job_directory']
+            basename = row['job_basename']
+            jh = self.create_job_harness(row['program'])
+            jh.directory = dirname
+            jh.job_name = basename
+            try:
+                jh.parse_data()
+            except:
+                print(f"parse_data failed for job with base path:")
+                print(os.path.join(dirname,basename))
+    
     def MainLoop(self,**kwargs):
-        debug = kwargs.get('debug',False)
-        complete = False
-        try:
-            self.restart_from_ledger()
-            if self.debug: print('reading old ledger on startup')
-        except:
-            self.read_batchfile()
-            if self.debug: print('reading batchfile on startup')
-        if self.debug: print('entering for loop')
+        print('batch_runner\nInitializing run\n')
+        self.initialize_run()
         while not self.check_finished():
-            if self.debug: print('\n\nupdating ledger and running job loops\n\n')
+            if self.debug: print('updating ledger and running job loops')
             self.run_jobs_update_ledger()
-            if self.debug: print('\n\nqueueing new jobs\n\n')
+            if self.debug: print('queueing new jobs')
             self.queue_new_jobs()
-            if self.debug: print('\n\nwriting ledger\n\n')
+            if self.debug: print('writing ledger')
             self.write_ledger()
-            if self.debug: print('\n\nsleeping\n\n')
+            if self.debug: print('sleeping')
             time.sleep(5)
         print("\n\nEXITING\n\n")
