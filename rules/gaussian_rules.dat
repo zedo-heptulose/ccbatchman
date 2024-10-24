@@ -1,5 +1,7 @@
 E_el_au ; SCF Done: ; last ; float
-H_au ; electronic\s+and\s+thermal\s+Enthalpies ; last ; float 
+E_el_thermo_au ; Sum of electronic and thermal Energies ; last ; float
+H_au ; Sum of electronic\s+and\s+thermal\s+Enthalpies ; last ; float 
+G_au ; Sum of electronic and thermal Free Energies ; last ; float
 imaginary_frequencies ; imaginary ; found   
 is_opt_freq ; (?i)opt\s+freq  ; found
 success ; Normal\s*termination\s*of\s*Gaussian ; found
