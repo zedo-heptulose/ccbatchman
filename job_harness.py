@@ -46,7 +46,7 @@ class JobHarness:
     def write_json(self):
         data_dict = self.to_dict()
         with open(os.path.join(self.directory,'run_info.json'),'w') as json_file:
-            json.dump(data_dict, json_file)
+            json.dump(data_dict, json_file,indent="")
 
     def from_dict(self,data):
         self.directory = data['directory']
@@ -177,16 +177,15 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         debug = kwargs.get('debug',False)
         path = os.path.join(self.directory,self.job_name) + self.output_extension
         data = None
-        for trial in range(0,5):
-            try:
+        for trial in range(0,3):
+            if os.path.exists(path):
                 data = file_parser.extract_data(
                     path,
                     self.ruleset
-                    )
+                )
                 break
 
-            except:
-                time.sleep(2)
+            else:
                 print("in parse_output, file not found. Trial number: {trial}")
         
         if not data:
@@ -194,7 +193,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             raise RuntimeError('parse_output failed.')
 
         with open(f"{os.path.join(self.directory, self.job_name)}.json",'w') as json_file:
-            json.dump(data, json_file)
+            json.dump(data, json_file,indent="")
 
     def OneIter(self,**kwargs):
         if self.status == 'failed' or self.status == 'completed':
@@ -251,15 +250,19 @@ class ORCAHarness(JobHarness):
         data = None
         opp = postprocessing.OrcaPostProcessor(self.directory,self.job_name)
         
-        for trial in range(0,5):
-            try:
-                opp.pp_routine()
-                return
+        for trial in range(0,3):
+            if os.path.exists(path):
+                try:
+                    opp.pp_routine()
+                    #this should write a json file....
+                    return
 
-            except:
-                time.sleep(2)
-                print("in ORCAHarness.parse_output, file not found. Trial number: {trial}")
-        
+                except:
+                    time.sleep(0.1)
+                    print("some other error occurred.")
+            else: 
+                    print(f"in ORCAHarness.parse_output, file not found. Trial number: {trial}")
+
         #if we got here, pp_routine failed five times
         print(f"In job_harness.ORCAHarness.parse_output:")
         print(f"with dirname {self.directory}")

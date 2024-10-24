@@ -47,7 +47,7 @@ class OrcaPostProcessor:
     def write_json(self,filename = None):
         if filename is None: filename = self.json_path
         with open(filename,'w') as json_file:
-            json.dump(self.data,json_file)
+            json.dump(self.data,json_file,indent="")
 
     def read_raw_state(self):
         self.data = file_parser.extract_data(self.output_path,self.parser_rules_path)

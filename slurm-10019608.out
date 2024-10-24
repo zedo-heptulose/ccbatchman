@@ -1,7 +1,0 @@
-Traceback (most recent call last):
-  File "/gpfs/home/gdb20/code/batch-manager/mike_crude.py", line 9, in <module>
-    br.try_parse_all_jobs()
-  File "/gpfs/home/gdb20/code/batch-manager/batch_runner.py", line 322, in try_parse_all_jobs
-    jh = self.create_job_harness(self,row['program'],**kwargs)
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: BatchRunner.create_job_harness() takes 2 positional arguments but 3 were given

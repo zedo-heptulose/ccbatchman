@@ -316,6 +316,7 @@ class BatchRunner:
             raise NotImplementedError(f"No pipe keyword for {command}")
 
     def try_parse_all_jobs(self,**kwargs):
+        print(f"trying to parse all jobs in ledger!!")
         for index, row in self.ledger.iterrows():
             dirname = row['job_directory']
             basename = row['job_basename']
@@ -323,7 +324,8 @@ class BatchRunner:
             jh.directory = dirname
             jh.job_name = basename
             try:
-                jh.parse_data()
+                print(f"parsing data in dir : {dirname} basename: {basename}")
+                jh.parse_output()
             except:
                 print(f"parse_data failed for job with base path:")
                 print(os.path.join(dirname,basename))
@@ -341,3 +343,4 @@ class BatchRunner:
             if self.debug: print('sleeping')
             time.sleep(5)
         print("\n\nEXITING\n\n")
+

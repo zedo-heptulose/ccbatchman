@@ -1,0 +1,6 @@
+TODO HERE:
+debug xTB thing with exception statements
+and prints
+....
+We will raise an exception 
+print the line when the variables are found

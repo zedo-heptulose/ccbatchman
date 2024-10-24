@@ -369,5 +369,7 @@ def extract_data(read_filename, ruleset_filename = "data/rules/GAU.rules"):
                         #print('list not in flag')
                         #print('storing key ' + varname + ' in file_data')
                         file_data[varname] = None
-
+    if not file_data:
+        raise ValueError('No data read from file!')
+        
     return file_data
