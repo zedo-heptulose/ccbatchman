@@ -253,7 +253,7 @@ class BatchRunner:
     def read_old_ledger(self,**kwargs):
         ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
         if not os.path.exists(ledger_path):
-            raise ValueErrors('ledger path does not exist')
+            raise ValueError('ledger path does not exist')
         old_ledger = pd.read_csv(ledger_path,sep='|')
         if self.debug: print(f"Old ledger loaded with filename:\n{self.ledger}")
             
@@ -288,13 +288,15 @@ class BatchRunner:
         if self.debug: self.ledger.to_csv('lar.csv')
         
         if self.restart:
-            if self.debug: print("READING OLD LEDGER AND MERGING")
-            self.read_old_ledger()
-            if self.debug: print("LEDGER AFTER MERGE:")
-            if self.debug: self.ledger.to_csv('lam.csv')
-            if self.debug: print("RESTARTING OLD JOB HARNESSES")
-            self.restart_job_harnesses()
-            
+            try:
+                if self.debug: print("READING OLD LEDGER AND MERGING")
+                self.read_old_ledger()
+                if self.debug: print("LEDGER AFTER MERGE:")
+                if self.debug: self.ledger.to_csv('lam.csv')
+                if self.debug: print("RESTARTING OLD JOB HARNESSES")
+                self.restart_job_harnesses()
+            except:
+                print("NO LEDGER FOUND TO RESTART FROM")
         return self
 
     def parse_pipe(self,pipe_command):

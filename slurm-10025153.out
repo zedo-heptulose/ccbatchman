@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/gpfs/home/gdb20/code/batch-manager/mike_compound.py", line 8, in <module>
+    br.MainLoop()
+  File "/gpfs/home/gdb20/code/batch-manager/batch_runner.py", line 340, in MainLoop
+    self.run_jobs_update_ledger()
+  File "/gpfs/home/gdb20/code/batch-manager/batch_runner.py", line 99, in run_jobs_update_ledger
+    job.OneIter()
+  File "/gpfs/home/gdb20/code/batch-manager/job_harness.py", line 212, in OneIter
+    self.parse_output()
+  File "/gpfs/home/gdb20/code/batch-manager/job_harness.py", line 193, in parse_output
+    raise RuntimeError('parse_output failed.')
+RuntimeError: parse_output failed.

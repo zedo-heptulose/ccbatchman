@@ -186,6 +186,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                 break
 
             else:
+                time.sleep(1)
                 print("in parse_output, file not found. Trial number: {trial}")
         
         if not data:

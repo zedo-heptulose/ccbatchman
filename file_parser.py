@@ -29,12 +29,13 @@ def read_var_from_line(line,var_type,var_flag= None,var_regex=None):
         if var_regex == None:
             if var_type == "float":
                 var_regex = float_pattern
-            if var_type == "integer":
+            if var_type == "int":
                 var_regex = int_pattern
         if var_type == "string":
             raise ValueError("string type specified without regular expression")
-      
+        
         matches = re.finditer(var_regex,line)
+
         if not matches:
             raise ValueError("variable regex did not match line\n")
             
