@@ -12,6 +12,7 @@ import numpy as np
 class BatchRunner:
     #tested
     def __init__(self,**kwargs):
+        self.strict = False
         self.batch_name = "test"
         self.scratch_directory = "./"
         self.run_root_directory = "./" #read from batchfile
@@ -96,6 +97,7 @@ class BatchRunner:
             if self.debug: print(f"running OneIter on job with\nbasename{job.job_name}\nid: {job.job_id}")
             if self.debug: print(f"job directory: {job.directory}")
 
+            
             job.OneIter()
            
             if self.debug: print(f"job status: {job.status}")
@@ -137,17 +139,21 @@ class BatchRunner:
     
     def create_job_harness(self,program,**kwargs):
         if program.lower() == 'gaussian':
-            return job_harness.GaussianHarness()
             if self.debug: print('Using Gaussian parsing rules')
+            return job_harness.GaussianHarness()
         elif program.lower() == 'orca':
-            return job_harness.ORCAHarness()
             if self.debug: print('Using ORCA parsing rules')
+            return job_harness.ORCAHarness()
         elif program.lower() == 'crest':
-            return job_harness.CRESTHarness()
             if self.debug: print('Using CREST parsing rules')
+            return job_harness.CRESTHarness()
         elif program.lower() == 'xtb':
-            return job_harness.xTBHarness()
             if self.debug: print('Using xTB parsing rules')
+            return job_harness.xTBHarness()
+        elif program.lower() == 'pyaroma':
+            if self.debug: print('Using pyAroma parsing rules')
+            return job_harness.pyAromaHarness()
+            
         else:
             raise ValueError('Invalid Program Specified')
         
@@ -174,7 +180,7 @@ class BatchRunner:
                 self.transfer_coords(not_started_jobs.iloc[i],job)
                
                 try:
-                    job.check_success_static()
+                    job.check_success_static() #so this didn't work?
                     job.write_json()
                 except:
                     print("job.check_success_static() failed, check that output exists")
@@ -182,8 +188,15 @@ class BatchRunner:
                 if job.status == 'succeeded':
                     job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.directory) if re.search(r'slurm-\d+.out',fn)])
                 
-                else:
+                elif job.status == 'failed':
+                    print("WARNING: JOB ALREADY FAILED")
+                    print(f"job name: {job.job_name}")
+                    print(f"job directory: {job.directory}")
+
+                elif job.status =='not_started':
                     job.submit_job()
+                else:
+                    raise ValueError(f"check_success_static() returned unexpected value: {job.status}")
 
                 ledger_index = not_started_jobs.index[i]
                 if self.debug: print(f"job id: {job.job_id}")
@@ -265,17 +278,20 @@ class BatchRunner:
     def restart_job_harnesses(self,**kwargs):
         #this is a bad way to do this and causes issues, presently.
         #would rather just update job status on a case by case basis...
-        current_job_mask = (self.ledger['job_id'] != -1)
+        
+        #TODO: check if this caused any issues
+        current_job_mask = (self.ledger['job_id'] != -1) & (self.ledger['job_status'] != 'succeeded') & (self.ledger['job_status'] != 'failed')
         
         for index, row in self.ledger[current_job_mask].iterrows():
             new_job = self.create_job_harness(row['program'])
             
             new_job.job_id = row['job_id']
-            new_job.status = row['job_status']
-            new_job.directory = row['job_directory']
-            new_job.job_name = row['job_basename']
-            new_job.restart = True 
-            self.jobs.append(new_job)
+            new_job.status = row['job_status'] #would be running for the offending jobs
+            new_job.directory = row['job_directory'] 
+            new_job.job_name = row['job_basename'] #sure
+            new_job.restart = True  #why does this fail
+            self.jobs.append(new_job) 
+            if self.debug: print(f"JOB ADDED TO QUEUE. {new_job.job_name}")
  
     def initialize_run(self):
         '''
@@ -328,6 +344,7 @@ class BatchRunner:
             try:
                 print(f"parsing data in dir : {dirname} basename: {basename}")
                 jh.parse_output()
+                jh.final_parse()
             except:
                 print(f"parse_data failed for job with base path:")
                 print(os.path.join(dirname,basename))
@@ -343,6 +360,6 @@ class BatchRunner:
             if self.debug: print('writing ledger')
             self.write_ledger()
             if self.debug: print('sleeping')
-            time.sleep(5)
+            time.sleep(1)
         print("\n\nEXITING\n\n")
 

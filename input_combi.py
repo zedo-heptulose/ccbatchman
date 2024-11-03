@@ -3,6 +3,7 @@ import input_files
 import itertools
 import os
 import copy
+import pandas as pd
 
 
 #iterate inputs has some new rules
@@ -84,11 +85,15 @@ def iterate_inputs(list_of_dict_of_dicts,flag_array):
     return all_configs
 
 
-def write_input_array(_configs,root_directory):
+def write_input_array(_configs,root_directory,**kwargs):
     if type(_configs) is dict:
         configs = copy.deepcopy(_configs.values())
     else:
         configs = copy.deepcopy(_configs)
+    #for modifying the ledger as needed    
+    ledger_filename = kwargs.get('ledger','__ledger__.csv')
+    ledger_path = os.path.join(root_directory,ledger_filename)
+    ledger = pd.read_csv(ledger_path,sep='|')
     for config in configs:
         #print(f"CONFIG: \n{config}")
         if config['program'].lower() == 'orca':
@@ -99,19 +104,43 @@ def write_input_array(_configs,root_directory):
             inp = input_files.CRESTInputBuilder()
         elif config['program'].lower() == 'xtb':
             inp = input_files.xTBInputBuilder()
+        elif config['program'].lower() == 'pyaroma':
+            inp = input_files.pyAromaInputBuilder()
         else:
             raise ValueError('unsupported program')
         config['write_directory'] = os.path.join(root_directory,config['write_directory'],config['job_basename'])
         inp.change_params(config)
         job = inp.build()
-        #THIS NEEDS TO FAIL IF THE DIRECTORY ALREADY EXISTS
-        try:
-            job.create_directory()
-        except:
-            print(f"Job Directory NOT WRITTEN at {job.directory}")
         
+        force_overwrite = config.get('!overwrite',False)
+        
+        if force_overwrite:
+            job.create_directory(force=True)
+            #here we modify the ledger....
+            #will raise an error if we ever have two jobs with the same name
+            identify_mask = (ledger['job_basename'] == config['job_basename']) & (ledger['job_directory'] == config['write_directory'])
+            if identify_mask.sum() > 1:
+                raise ValueError("Multiple jobs found with the same name.")
+            ledger.loc[identify_mask, 'job_id'] = f"{-1}"
+            ledger.loc[identify_mask, 'job_status'] = 'not_started'
+            ledger.loc[identify_mask, 'coords_from'] = config['!coords_from']
+            ledger.loc[identify_mask,'xyz_filename'] = config['!xyz_file']
+
+        else:
+            try:
+                job.create_directory(force=False)
+            except:
+                print(f"Job Directory NOT WRITTEN at {job.directory}")
+            
         del job
         del inp
+    
+    ledger.to_csv(ledger_path,sep='|',index=False)
+    return
+    
+#TODO
+#really need to overwrite ledger with not_started when doing this...
+
 
 def write_batchfile(_configs,root_dir,filename):
     path = os.path.join(root_dir,filename)

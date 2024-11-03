@@ -1,0 +1,14 @@
+{
+  "path_to_program" : "~/code/pyAroma/src/preprocessingDriver.py",
+  "pre_submit_lines" : null,
+  "post_submit_lines" : null,
+  "num_cores" : 1,
+  "mem_per_cpu_GB" : 3,
+  "runtime" : "0-00:05:00",
+  "write_directory" : ".",
+  "xyz_directory" : ".",
+  "xyz_file" : "test.xyz",
+  "job_basename" : "NICS",
+  "cc_program" : "Gaussian",
+  "verbosity" : true
+}

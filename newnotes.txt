@@ -34,3 +34,14 @@ maybe we can store jobs in a tree structure?
 BUGS:
 we run into the following problem:
 on restart, the old ledger should overwrite the batchfile entries, but doesn't happen
+
+
+
+
+FEATURES WANTED:
+can we write submission scripts for the batch runner to directories?
+I mean, can our input generator make these, so we aren't running
+from the directory with all the source code?
+
+
+

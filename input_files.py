@@ -9,6 +9,7 @@ ORCACONFIG = 'orca_config.json'
 GAUSSCONFIG = 'gaussian_config.json'
 CRESTCONFIG = 'crest_config.json'
 XTBCONFIG = 'xtb_config.json'
+NICSCONFIG = 'nics_preprocessing_config.json'
 
 class Input:
     def __init__(self): 
@@ -124,9 +125,17 @@ class ORCAInput(CCInput):
                     self.xyzfile = re.search(r'(\S+\.xyz\b)',line).group(1)
                 if self.debug: print(f'charge: {self.charge} multiplicity: {self.multiplicity} xyz fn: {self.xyzfile}')
 
+
+
+
+
+
+
+
+
 class GaussianInput(CCInput):
     def __init__(self):
-        Input.__init__(self)
+        CCInput.__init__(self)
         self.nprocs = 1
         self.mem_per_cpu_gb = 2
         self.title = "super secret special scripts shaped sthis submission sfile"
@@ -251,6 +260,9 @@ class GaussianInput(CCInput):
 
 
 
+
+
+
 class SbatchScript(Input):
     def __init__(self):
         Input.__init__(self)
@@ -295,6 +307,18 @@ class SbatchScript(Input):
                 self.commands.append(line.strip())
 
 
+class pyAromaScript(SbatchScript):
+    def __init__(self):
+        SbatchScript.__init__(self)
+        self.xyzfile = ""
+        #for now, we feed it the right xyz filename from the start.
+        #in fact, in input_combi, whenever using coords_from,
+        #we just shouldn't have coordinates!
+        #for gaussian, iunno, make it one ghost atom or something
+
+
+#TODO: FIX THIS!!!!!!!!!!!!!!!
+#THIS IS BROKEN
 #for now, this is kinda a hack that can't be
 #modified beyond just changing the coordinates
 class xTBScript(SbatchScript):
@@ -314,15 +338,18 @@ class xTBScript(SbatchScript):
     
     def load_file(self,path):
         SbatchScript.load_file(self,path)
-        for command in self.commands:
+        #no commands, so this does nothing
+        for command in self.commands:#this is a blank slate if loading.
             match = re.match(r'(?:\b)([A-Za-z0-9_+-]+.xyz)',command)
             if match:
                 self.xyzfile = match.group(1)
 
+    #this looks wrong. Has this all actually been working?
 
-#we don't use one of these for a CREST job, because it doesn't
-#make sense (at the moment, with our current workflows) to 
-#change the coordinates of a crest job
+
+
+
+
 
 
 class Job:
@@ -334,10 +361,15 @@ class Job:
         self.xyz_directory = "./"
         self.xyz = "test.xyz"
         
-    def create_directory(self):
-        #don't overwrite existing jobs!!!!
-        if os.path.exists(self.directory):
-            raise ValueError('input_files.Job tried to overwrite existing directory')
+    def create_directory(self,**kwargs):
+        force_overwrite = kwargs.get('force',False)
+        file_exists = os.path.exists(self.directory)
+        if file_exists:
+            if force_overwrite:
+                print(f"overwriting directory: {self.directory}")
+                shutil.rmtree(self.directory)
+            else:
+                raise ValueError('input_files.Job tried to overwrite existing directory')
         
         if self.debug: print(f"making directory: {self.directory}")
         os.makedirs(self.directory)
@@ -357,6 +389,10 @@ class Job:
         if self.debug: print('writing shell script.')
         self.sh.directory = self.directory
         self.sh.write_file()
+
+
+
+
 
 
 
@@ -415,7 +451,16 @@ class InputBuilder:
         
         return newjob
        
-    
+
+
+
+
+
+
+
+
+
+
 class ORCAInputBuilder(InputBuilder):
     def __init__(self):
         self.config = helpers.load_config_from_file(f'{CONFIGPATH}{ORCACONFIG}') 
@@ -479,6 +524,13 @@ class ORCAInputBuilder(InputBuilder):
 
 
 
+
+
+
+
+
+
+
 class GaussianInputBuilder(InputBuilder):
     def __init__(self):
         self.config = helpers.load_config_from_file(f"{CONFIGPATH}{GAUSSCONFIG}")
@@ -505,6 +557,11 @@ class GaussianInputBuilder(InputBuilder):
         if self.config['solvent']:
             inp.keywords.append(f"SCRF(SMD,Solvent={self.config['solvent']})",)
         inp.keywords.append(self.config['other_keywords'])
+        
+        if self.config['broken_symmetry']:
+            raise ValueError("Gaussian does not support Broken Symmetry")
+        if self.config['mix_guess']:
+            inp.keywords.append('Guess=Mix')
 
         nprocs = self.config['num_cores']
         mem_per_cpu_gb = self.config['mem_per_cpu_GB']
@@ -512,6 +569,15 @@ class GaussianInputBuilder(InputBuilder):
         inp.multiplicity = self.config['spin_multiplicity']
         inp.xyzfile = os.path.join(self.config['xyz_file']) 
         return inp
+
+
+
+
+
+
+
+
+
 
 class CRESTInputBuilder(InputBuilder):
     def __init__(self):
@@ -554,6 +620,14 @@ class CRESTInputBuilder(InputBuilder):
         return None
 
 
+
+
+
+
+
+
+
+
 class xTBInputBuilder(InputBuilder):
     def __init__(self):
         self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,XTBCONFIG))
@@ -594,3 +668,24 @@ class xTBInputBuilder(InputBuilder):
     def build_input(self):
         return None
 
+
+
+
+
+
+class pyAromaInputBuilder(InputBuilder):
+    def __init__(self):
+        self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,NICSCONFIG))
+
+
+    def submit_line(self):
+        command = self.config['path_to_program']
+        basename = self.config['job_basename']
+        xyz_file = self.config['xyz_file']
+        program = self.config['cc_program']
+
+        submit_line = f"python3 {command} {xyz_file} -o {basename}.xyz -p {program} -v > {basename}.out"
+        return submit_line
+
+    def build_input(self):
+        return None

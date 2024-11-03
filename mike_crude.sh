@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -n 8
+#SBATCH -n 1
 #SBATCH -N 1
 #SBATCH -A genacc_q
 #SBATCH -t 1-00:00:00

@@ -15,11 +15,13 @@ def replace_xyz_file(input_path,xyz_path,program):
         input_obj = input_files.GaussianInput()
     elif program.lower() == 'xtb':
         input_obj = input_files.xTBScript()
+    elif program.lower() == 'pyaroma':
+        input_obj = input_files.pyAromaScript()
     else:
         raise ValueError(
         """
         Invalid Program. List of acceptable programs:
-        ORCA | GAUSSIAN | XTB 
+        ORCA | GAUSSIAN | XTB | PYAROMA
         """
         )
     #TODO: fix inconsistent naming conventions

@@ -16,6 +16,7 @@
   "spin_multiplicity": 1,
   "uks": true,
   "broken_symmetry": false,
+  "mix_guess" : false,
   "run_type":"opt freq",
   "functional": "b3lyp",
   "basis": "6-31g(d,p)",

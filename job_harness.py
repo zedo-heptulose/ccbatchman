@@ -15,9 +15,14 @@ ORCARULES = os.path.join(RULEPATH,'orca_rules.dat')
 GAUSSRULES = os.path.join(RULEPATH,'gaussian_rules.dat')
 CRESTRULES = os.path.join(RULEPATH,'crest_rules.dat')
 XTBRULES = os.path.join(RULEPATH,'xtb_rules.dat')
+PYAROMARULES = os.path.join(RULEPATH,'pyaroma_rules.dat')
 
 class JobHarness:
     def __init__(self):
+        self.strict = False
+        self.parse_fail_counter = 0
+        self.parse_fail_threshold = 10
+
         self.debug = False
         self.silent = False
         #filesystem
@@ -191,7 +196,10 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         
         if not data:
             print(f"Attempted to read output at {path}.")
-            raise RuntimeError('parse_output failed.')
+            self.parse_fail_counter += 1
+
+        if self.parse_fail_counter >= self.parse_fail_threshold:
+            raise RuntimeError('TOO MANY PARSE FAILS')
 
         with open(f"{os.path.join(self.directory, self.job_name)}.json",'w') as json_file:
             json.dump(data, json_file,indent="")
@@ -211,7 +219,9 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         self.write_json()
         if not (self.status == 'not_started' or self.status == 'pending'):
             self.parse_output()
-            
+    
+    def final_parse(self):
+        pass
     
     def MainLoop(self,**kwargs):
         debug = kwargs.get('debug',False)
@@ -234,6 +244,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         if self.status == 'failed':
             return 1
         elif self.status == 'succeeded':
+            self.final_parse()
             return 0
 
 class ORCAHarness(JobHarness):
@@ -244,33 +255,9 @@ class ORCAHarness(JobHarness):
         self.input_extension = '.inp'
         self.program = 'orca'
 
-
-    def parse_output(self,**kwargs):
-        debug = kwargs.get('debug',False)
-        path = os.path.join(self.directory,self.job_name) + self.output_extension
-        data = None
+    def final_parse(self):
         opp = postprocessing.OrcaPostProcessor(self.directory,self.job_name)
-        
-        for trial in range(0,3):
-            if os.path.exists(path):
-                try:
-                    opp.pp_routine()
-                    #this should write a json file....
-                    return
-
-                except:
-                    time.sleep(0.1)
-                    print("some other error occurred.")
-            else: 
-                    print(f"in ORCAHarness.parse_output, file not found. Trial number: {trial}")
-
-        #if we got here, pp_routine failed five times
-        print(f"In job_harness.ORCAHarness.parse_output:")
-        print(f"with dirname {self.directory}")
-        print(f"and basename {self.job_name}")
-        print(f"parse_output failed")
-        raise RuntimeError('parse_output failed.')
-
+        opp.pp_routine()
 
 
 class GaussianHarness(JobHarness):
@@ -302,6 +289,13 @@ class xTBHarness(JobHarness):
         self.output_extension = '.out'
         self.input_extension = '.sh'
         self.program = 'xtb'
-        
-        if self.debug: print(f'xTBHarness initiated, looking for rules at {XTBRULES}')
-        if self.debug: print(f'self.ruleset: {self.ruleset}')
+
+class pyAromaHarness(JobHarness):
+    def __init__(self):
+        JobHarness.__init__(self)
+        self.ruleset = PYAROMARULES
+        self.output_extension = '.out'
+        self.input_extension = '.sh'
+        self.program = 'pyaroma'
+
+

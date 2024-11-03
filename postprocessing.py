@@ -124,28 +124,7 @@ class OrcaPostProcessor:
         self.data = new_dict
         return self
 
-    def delta_unit_conversions(self):
-        '''
-        '''
-        #put these in a json blob somewhere
-        #find a database and get citations for these UCs
-        #these values from http://www.yorku.ca/renef/constants.pdf
-        ucs = [
-            ('kcal_mol-1',627.5),
-            ('kj_mol-1',2625),
-            ('eV' , 27.211),
-        ]
-        new_dict = {}
-        for key,value in self.data.items():
-            if match := re.match(r'(Delta\w+)(?:au)',key):
-                for unit_conversion in ucs:
-                    new_key = match.group(1) + unit_conversion[0]
-                    new_value = value * unit_conversion[1]
-                    new_dict[new_key] = new_value
-            new_dict[key] = value
-            
-        self.data = new_dict
-        return self
+
     
     def spin_corrected_bs_energies(self):
         '''
@@ -166,19 +145,53 @@ class OrcaPostProcessor:
         
         Delta_E_st_sc = S_2_hs * (E_hs_au - E_bs_au)/(S_2_hs - S_2_bs)
         
-        self.data['Delta_E_st_spin_corrected_au'] = Delta_E_st_sc
+        self.data['Delta_E_st_v_au'] = Delta_E_st_sc
         #d as in "dispersionAndGCP"
-        self.data['E_singlet_d_spin_corrected_au'] =\
+        self.data['E_el_au'] =\
             E_hs_au - Delta_E_st_sc + E_gCP_au + E_dispersion_au
 
         #for completeness
-        self.data['E_triplet_d_corrected_au'] =\
+        self.data['E_el_triplet_au'] =\
             E_hs_au + E_gCP_au + E_dispersion_au
+
+        self.data['NOTE'] = [
+            "All energy values, except for purely thermal and",
+            "triplet ones, are spin-corrected and derived from",
+            "<S^2>_HS, <S^2>_BS, E_high_spin_au, E_broken_sym_au",
+            "E_gCP_au, and E_dispersion_au",
+            ]
 
         return self
         #TODO: refresh keys used in file parser rules, they are bad
         #TODO: write these keys down somewhere, make a list, or it will get annoying
-        
+
+    def thermal_energies(self):
+        '''
+        this is used to get X_minus_E_el,
+        for every energy variable...
+        This should calculate this for everything 
+        with some certain characteristics.
+        are there commonalities with all the energies to use?
+        maybe we should change the way BS jobs are handled.
+        we make the spin corrected value the default E_el_au,
+        and we store the old value as "E_el_no_spin_corr_au"
+        and we have "E_el_triplet_au"
+        and we don't store the dispersion uncorrected values.
+        and we include a "broken_symmetry" flag.
+        '''
+        E_el_au = self.data['E_el_au']
+        try:
+            G_au = self.data['G_au']
+            H_au = self.data['H_au']
+            E_au = self.data['E_au']
+            self.data['G_minus_E_el_au'] = G_au - E_el_au
+            self.data['H_minus_E_el_au'] = H_au - E_el_au
+            self.data['E_minus_E_el_au'] = E_au - E_el_au
+            self.data['thermochem'] = True
+        except:
+            self.data['thermochem'] = False
+        return self
+    
     def delta_E_homo_lumo(self):
         raise NotImplementedError()
 
@@ -187,6 +200,8 @@ class OrcaPostProcessor:
         bs_parsed = True        
         self.read_raw_state()
         self.prune_data()
+        self.thermal_energies()
+        
         try:
             self.parse_frontier_UNO_occupations()
         #self.delta_E_homo_lumo()
@@ -198,7 +213,7 @@ class OrcaPostProcessor:
         except:
             bs_parsed = False
         
-        self.delta_unit_conversions()
+        self.data = delta_unit_conversions(self.data)
         self.write_json()
         if not unos_parsed or not bs_parsed:
             print("warning in run with")
@@ -207,3 +222,25 @@ class OrcaPostProcessor:
             print(f"ORCA JOB")
             if not unos_parsed: print("Could not parse UNO occs")
             if not bs_parsed: print("Could not parse BS spin-corrected energies")
+
+def delta_unit_conversions(data):
+    '''
+    '''
+    #put these in a json blob somewhere
+    #find a database and get citations for these UCs
+    #these values from http://www.yorku.ca/renef/constants.pdf
+    ucs = [
+        ('kcal_mol-1',627.5),
+        ('kj_mol-1',2625),
+        ('eV' , 27.211),
+    ]
+    new_dict = {}
+    for key,value in data.items():
+        if match := re.match(r'(Delta\w+)(?:au)',key):
+            for unit_conversion in ucs:
+                new_key = match.group(1) + unit_conversion[0]
+                new_value = value * unit_conversion[1]
+                new_dict[new_key] = new_value
+        new_dict[key] = value
+        
+    return new_dict

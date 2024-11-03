@@ -1,4 +1,5 @@
-E_el_au ; FINAL SINGLE POINT ENERGY; last; float
+E_el_au ; FINAL SINGLE POINT ENERGY ; last; float
+E_au  ; Total thermal energy ; last ; float
 H_au  ; Total Enthalpy           ; last; float
 G_au ; Final Gibbs free energy ; last; float
 TS_au ; Final\s+entropy\s+term  ;last ; float 
