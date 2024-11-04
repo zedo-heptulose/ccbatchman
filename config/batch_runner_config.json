@@ -1,0 +1,18 @@
+{
+  "program" : "batch_runner",
+  "version" : "0.1",
+  "path_to_program" : "~/code/batch-manager/src/batch_runner.py",
+  "pre_submit_lines" : [
+	  "conda init bash",
+	  "source ~/.bashrc",
+	  "conda activate automation_scripts",
+	  "export PYTHONUNBUFFERED=1"
+  ],
+  "post_submit_lines" : null,
+  "num_cores" : 1,
+  "mem_per_cpu_GB" : 3,
+  "runtime" : "3-00:00:00",
+  "write_directory" : ".",
+  "job_basename" : "batchfile",
+  "verbosity" : true
+}

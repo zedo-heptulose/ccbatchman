@@ -9,7 +9,7 @@ ORCACONFIG = 'orca_config.json'
 GAUSSCONFIG = 'gaussian_config.json'
 CRESTCONFIG = 'crest_config.json'
 XTBCONFIG = 'xtb_config.json'
-NICSCONFIG = 'nics_preprocessing_config.json'
+PYAROMACONFIG = 'pyaroma_config.json'
 
 class Input:
     def __init__(self): 
@@ -675,7 +675,7 @@ class xTBInputBuilder(InputBuilder):
 
 class pyAromaInputBuilder(InputBuilder):
     def __init__(self):
-        self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,NICSCONFIG))
+        self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,PYAROMACONFIG))
 
 
     def submit_line(self):

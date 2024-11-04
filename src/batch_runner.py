@@ -8,21 +8,24 @@ import re
 import editor
 import numpy as np
 
+import argparse
 
+
+#TODO: add arguments for each of these
 class BatchRunner:
     #tested
     def __init__(self,**kwargs):
         self.strict = False
-        self.batch_name = "test"
-        self.scratch_directory = "./"
+        self.batch_name = "test" #why do we have this?
+        self.scratch_directory = "./" #this doesn't need to be changed
         self.run_root_directory = "./" #read from batchfile
         self.jobs = [] #list of JobHarness objects
         self.ledger = pd.DataFrame() #ledger containing instructions and status
-        self.batchfile = kwargs.get('batchfile',None)
+        self.batchfile = kwargs.get('input_file',None)
         self.ledger_filename = kwargs.get('ledger_filename','__ledger__.csv') #
         self.restart = kwargs.get('restart',True) #This option is for using an old ledger file
-        self.max_jobs_running = kwargs.get('maxjobs',1)
-        self.debug = False
+        self.max_jobs_running = kwargs.get('num_jobs',1)
+        self.debug = kwargs.get('debug',False)
 
     #tested
     def to_dict(self): #DOES NOT INCLUDE LEDGER, BUT ONLY LEDGER FILENAME
@@ -363,3 +366,20 @@ class BatchRunner:
             time.sleep(1)
         print("\n\nEXITING\n\n")
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Driver program for sequentially submitting jobs through Slurm and managing pipes")
+    parser.add_argument("input_file", type=str, help="Path to .csv batchfile with appropriate format")
+    parser.add_argument("-v", "--verbose", action="store_true",help="Enable debug/verbose print statements")
+    parser.add_argument("-j", "--num-jobs", type=int, help="Max no. jobs running in parallel")
+
+    args = parser.parse_args()
+
+    input_file = args.input_file
+    verbose = args.verbose
+    num_jobs = args.num_jobs
+
+    batch_runner = BatchRunner(input_file=input_file,debug=verbose,num_jobs=num_jobs)
+    batch_runner.MainLoop()
+
+
+    

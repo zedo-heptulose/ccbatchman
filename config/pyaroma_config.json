@@ -1,6 +1,13 @@
 {
+  "program" : "pyAroma",
+  "version" : "4.1/fork",
   "path_to_program" : "~/code/pyAroma/src/preprocessingDriver.py",
-  "pre_submit_lines" : null,
+  "pre_submit_lines" : [
+	  "conda init bash",
+	  "source ~/.bashrc",
+	  "conda activate automation_scripts",
+	  "export PYTHONUNBUFFERED=1"
+  ],
   "post_submit_lines" : null,
   "num_cores" : 1,
   "mem_per_cpu_GB" : 3,

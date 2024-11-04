@@ -1,0 +1,24 @@
+DEPENDENCIES FOR BATCH RUNNER
+pandas
+numpy
+
+
+
+DEPENDENCIES FOR PYAROMA
+openpyxl
+PyQt6
+mpl_toolkits
+matplotlib
+networkx
+
+
+DEPENDENCIES FOR MOLECULE EDITOR
+py3Dmol
+plotly
+
+
+pathlib
+#builtins?
+webbrowser
+platform
+
