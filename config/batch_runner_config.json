@@ -14,5 +14,6 @@
   "runtime" : "3-00:00:00",
   "write_directory" : ".",
   "job_basename" : "batchfile",
-  "verbosity" : true
+  "verbosity" : true,
+  "max_jobs" : 1
 }

@@ -93,7 +93,9 @@ def write_input_array(_configs,root_directory,**kwargs):
     #for modifying the ledger as needed    
     ledger_filename = kwargs.get('ledger','__ledger__.csv')
     ledger_path = os.path.join(root_directory,ledger_filename)
-    ledger = pd.read_csv(ledger_path,sep='|')
+    ledger = None
+    if os.path.exists(ledger_path):
+        ledger = pd.read_csv(ledger_path,sep='|')
     for config in configs:
         #print(f"CONFIG: \n{config}")
         if config['program'].lower() == 'orca':
@@ -114,18 +116,42 @@ def write_input_array(_configs,root_directory,**kwargs):
         
         force_overwrite = config.get('!overwrite',False)
         
-        if force_overwrite:
-            job.create_directory(force=True)
-            #here we modify the ledger....
-            #will raise an error if we ever have two jobs with the same name
-            identify_mask = (ledger['job_basename'] == config['job_basename']) & (ledger['job_directory'] == config['write_directory'])
-            if identify_mask.sum() > 1:
-                raise ValueError("Multiple jobs found with the same name.")
-            ledger.loc[identify_mask, 'job_id'] = f"{-1}"
-            ledger.loc[identify_mask, 'job_status'] = 'not_started'
-            ledger.loc[identify_mask, 'coords_from'] = config['!coords_from']
-            ledger.loc[identify_mask,'xyz_filename'] = config['!xyz_file']
+        if force_overwrite == 'not_succeeded' or force_overwrite is True: #really, failed and not started
+            job_succeeded = False
+            if ledger is not None:    
+                identify_mask = (ledger['job_basename'] == config['job_basename']) & (ledger['job_directory'] == config['write_directory'])
+                if identify_mask.sum() > 1:
+                    raise ValueError("Multiple jobs found with the same name.")
 
+                if ledger.loc[identify_mask,'job_status'].iloc[0] == 'succeeded':
+                    print("JOB ALREADY SUCCEEDED")
+                    job_succeeded = True
+                    
+                else:
+                    ledger.loc[identify_mask, 'job_id'] = f"{-1}"
+                    ledger.loc[identify_mask, 'job_status'] = 'not_started'
+                    ledger.loc[identify_mask, 'coords_from'] = config['!coords_from']
+                    ledger.loc[identify_mask,'xyz_filename'] = config['!xyz_file']
+
+            if not job_succeeded:
+                job.create_directory(force=True)
+
+        
+         elif force_overwrite == 'all':
+            job_succeeded = False
+            if ledger is not None:    
+                identify_mask = (ledger['job_basename'] == config['job_basename']) & (ledger['job_directory'] == config['write_directory'])
+                
+                if identify_mask.sum() > 1:
+                    raise ValueError("Multiple jobs found with the same name.")
+            
+                ledger.loc[identify_mask, 'job_id'] = f"{-1}"
+                ledger.loc[identify_mask, 'job_status'] = 'not_started'
+                ledger.loc[identify_mask, 'coords_from'] = config['!coords_from']
+                ledger.loc[identify_mask,'xyz_filename'] = config['!xyz_file']
+                
+            job.create_directory(force=True)
+             
         else:
             try:
                 job.create_directory(force=False)
@@ -134,8 +160,8 @@ def write_input_array(_configs,root_directory,**kwargs):
             
         del job
         del inp
-    
-    ledger.to_csv(ledger_path,sep='|',index=False)
+    if ledger is not None:
+        ledger.to_csv(ledger_path,sep='|',index=False)
     return
     
 #TODO

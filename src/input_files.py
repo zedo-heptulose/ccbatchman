@@ -348,10 +348,6 @@ class xTBScript(SbatchScript):
 
 
 
-
-
-
-
 class Job:
     def __init__(self):
         self.debug = False
@@ -689,3 +685,18 @@ class pyAromaInputBuilder(InputBuilder):
 
     def build_input(self):
         return None
+
+    #TODO: rename this json loader function, this is kinda dumb
+class batch_runnerInputBuilder(InputBuilder):
+    def __init__(self):
+        self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,BATCH_RUNNERCONFIG))
+
+    def sumbit_line(self):
+        command = self.config['path_to_program']
+        batchfile_basename = self.config['job_basename']
+        max_jobs = self.config['max_jobs']
+        verbose = self.config['verbosity']
+
+        verbose_string = '-v' if verbose else ''
+        batchfile_name = batchfile_basename + '.csv'
+        submit_line = f"python3 {command} {batchfile_name} {verbose_string} -j {max_jobs}"
