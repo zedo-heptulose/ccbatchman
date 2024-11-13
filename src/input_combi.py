@@ -17,14 +17,31 @@ import pandas as pd
 
 FLAGS = ['!directories']
 
-def do_everything(config_list,root_dir):
+def do_everything(root_directory,run_settings,*args):
     """
-    strings together the functions always used together
+    accepts any number of lists of dicts of settings to combine
     """
-    configs,flags = sort_flags(config_list)
-    paths = iterate_inputs(configs,flags)
-    write_input_array(paths,root_dir)
-    write_batchfile(paths,root_dir,'batchfile.csv')
+    for config_list in args:
+        configs,flags = sort_flags(config_list)
+        paths = iterate_inputs(configs,flags)
+        write_input_array(paths,root_directory)
+        print('editing batchfile')
+        write_batchfile(paths,root_directory,'batchfile.csv')
+    if run_settings is not None:
+        print('creating script for run')
+        write_own_script(run_settings,root_directory)
+
+def write_own_script(run_settings,root_dir):
+    br_builder = input_files.BatchRunnerInputBuilder()
+    br_builder.change_params({
+        **run_settings,
+        'write_directory' : root_dir,
+        })
+    #TODO: clean this up some
+    job = br_builder.build()
+    job.sh.directory = job.directory
+    print(f'writing file to {job.sh.directory}')
+    job.sh.write_file()
 
 def xyz_files_from_directory(directory):
     molec_list = os.listdir(directory)
@@ -55,32 +72,28 @@ def sort_flags(list_of_dict_of_dicts):
 def iterate_inputs(list_of_dict_of_dicts,flag_array):
     all_paths = itertools.product(*[d.keys() for d in list_of_dict_of_dicts])
     all_configs = []
-    #print("acknowledge meeee")
     for key_path in all_paths:
         config_dict = {}
         name_list = []
-        #print(key_path)
         for index, key, flags in zip(range(0,len(key_path)),key_path,flag_array):
-            #print("iterating")
             name_list.append(key)
             if '!directories' in flags:
+                #TODO: fix weird error that happens here
                 config_dict['write_directory'] = os.path.join(
                     config_dict.get('write_directory',''),
                     '_'.join(name_list)
                 )
                 name_list = []
-            try:
-                config_dict = helpers.merge_dicts(config_dict,list_of_dict_of_dicts[index][key])
-                #print(f"CONFIG DICT: \n{config_dict}")
-            except:
-                print(f"""
-                warning: error for items:
-                {config_dict}
-                {list_of_dict_of_dicts[index][key]}
-                """)
+            config_dict = helpers.merge_dicts(config_dict,list_of_dict_of_dicts[index][key])
         name = '_'.join([name_frag for name_frag in name_list if name_frag])
         config_dict['job_basename'] = name
-        #print(f"\n\nat the end of it all: {config_dict}\n\n")
+        print(config_dict.get('!xyz_file','IF I HAD ONE'))
+        if config_dict.get('!xyz_file',None):#should avoid a lot of issues this way
+            config_dict['xyz_file'] = config_dict['!xyz_file']
+            #can't think of any example when we wouldn't want to do this
+        if not config_dict.get('write_directory',None):
+            print("No write directory provided")
+            config_dict['write_directory'] = ''#have to see how this is handled
         all_configs.append(config_dict)
     return all_configs
 
@@ -123,21 +136,30 @@ def write_input_array(_configs,root_directory,**kwargs):
                 if identify_mask.sum() > 1:
                     raise ValueError("Multiple jobs found with the same name.")
 
-                if ledger.loc[identify_mask,'job_status'].iloc[0] == 'succeeded':
-                    print("JOB ALREADY SUCCEEDED")
-                    job_succeeded = True
-                    
+                filtered_status = ledger.loc[identify_mask,'job_status']                    
+                if not filtered_status.empty:
+                    if ledger.loc[identify_mask,'job_status'].iloc[0] in ['succeeded','running','pending']:
+                        print("JOB ALREADY SUCCEEDED or RUNNING or PENDING")
+                        job_succeeded = True
+                    else:
+                        print("job failed")
+                        job_succeeded = False
                 else:
+                    print("job not found")
+                    job_succeeded = False
+                
+                    
+                if not job_succeeded:
                     ledger.loc[identify_mask, 'job_id'] = f"{-1}"
                     ledger.loc[identify_mask, 'job_status'] = 'not_started'
                     ledger.loc[identify_mask, 'coords_from'] = config['!coords_from']
                     ledger.loc[identify_mask,'xyz_filename'] = config['!xyz_file']
-
+             
             if not job_succeeded:
                 job.create_directory(force=True)
 
         
-         elif force_overwrite == 'all':
+        elif force_overwrite == 'all':
             job_succeeded = False
             if ledger is not None:    
                 identify_mask = (ledger['job_basename'] == config['job_basename']) & (ledger['job_directory'] == config['write_directory'])
@@ -156,7 +178,9 @@ def write_input_array(_configs,root_directory,**kwargs):
             try:
                 job.create_directory(force=False)
             except:
-                print(f"Job Directory NOT WRITTEN at {job.directory}")
+                #print(f"Job Directory NOT WRITTEN at {job.directory}")
+                #commenting this out; it was used for debugging but now just makes a lot of noise.
+                pass
             
         del job
         del inp
@@ -172,7 +196,7 @@ def write_batchfile(_configs,root_dir,filename):
     path = os.path.join(root_dir,filename)
     existed = os.path.exists(path)
     append_or_write = 'w'
-    written_lines = {} #store every line as a key in a dict, True if written doesn't exist if not
+    written_lines = {} #store every line as a key in a dict, True if written doesn't exist if not #we can just use a set for this, why do we use a dict?
     if existed:
         append_or_write = 'a'
         #

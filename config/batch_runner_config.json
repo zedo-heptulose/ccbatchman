@@ -13,7 +13,7 @@
   "mem_per_cpu_GB" : 3,
   "runtime" : "3-00:00:00",
   "write_directory" : ".",
-  "job_basename" : "batchfile",
+  "job_basename" : "batch_runner",
   "verbosity" : true,
   "max_jobs" : 1
 }

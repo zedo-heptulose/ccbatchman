@@ -5,7 +5,10 @@
   "pre_submit_lines": [
 	  "conda init bash",
 	  "source ~/.bashrc",
-	  "conda activate crest3"
+	  "conda activate crest_3",
+	  "export OMP_STACKSIZE=4G",
+	  "export OMP_MAX_ACTIVE_LEVELS=1",
+	  "ulimit -s unlimited"
   	],
   "post_submit_lines": null,
   "num_cores": 4,
