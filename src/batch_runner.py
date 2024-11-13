@@ -351,7 +351,11 @@ class BatchRunner:
             except:
                 print(f"parse_data failed for job with base path:")
                 print(os.path.join(dirname,basename))
-    
+   
+    def save_fail_output(self,**kwargs):
+        print("Job failed. Saving output in {self.run_root_directory}/failed_jobs.")
+
+
     def MainLoop(self,**kwargs):
         print('batch_runner\nInitializing run\n')
         self.initialize_run()

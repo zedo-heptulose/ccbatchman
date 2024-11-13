@@ -3,8 +3,11 @@
   "pre_submit_lines": [
 	  "conda init bash",
 	  "source ~/.bashrc",
-	  "conda activate crest3",
-	  "export PYTHONUNBUFFERED=1"
+	  "conda activate crest_3",
+	  "export PYTHONUNBUFFERED=1",  
+	  "export OMP_STACKSIZE=2G",
+	  "export OMP_MAX_ACTIVE_LEVELS=1",
+	  "ulimit -s unlimited"
   ],
   "post_submit_lines": null,
   "num_cores": 12,

@@ -10,6 +10,7 @@ GAUSSCONFIG = 'gaussian_config.json'
 CRESTCONFIG = 'crest_config.json'
 XTBCONFIG = 'xtb_config.json'
 PYAROMACONFIG = 'pyaroma_config.json'
+BATCHRUNNERCONFIG = 'batch_runner_config.json'
 
 class Input:
     def __init__(self): 
@@ -119,8 +120,8 @@ class ORCAInput(CCInput):
 
 
             elif re.match(r'\s*\*\s*xyz',line,re.I):
-                self.charge = int(re.search(r'(\d+)(?:\s+\d+)',line).group(1))
-                self.multiplicity = int(re.search(r'(?:\d+\s+)(\d+)',line).group(1))
+                self.charge = int(re.search(r'([-0-9]+)(?:\s+\d+)',line).group(1))
+                self.multiplicity = int(re.search(r'(?:[-0-9]\s+)(\d+)',line).group(1))
                 if re.match(r'\s*\*\s*xyzfile',line,re.I):
                     self.xyzfile = re.search(r'(\S+\.xyz\b)',line).group(1)
                 if self.debug: print(f'charge: {self.charge} multiplicity: {self.multiplicity} xyz fn: {self.xyzfile}')
@@ -154,8 +155,11 @@ class GaussianInput(CCInput):
             if self.debug: print('existing coordinates not found')
             xyz_path = os.path.join(self.directory,self.xyzfile)
             if self.debug: print(f"reading coordinates from path {xyz_path}")
-            with open(xyz_path,'r') as xyzfile:
-                self.coordinates = xyzfile.readlines()[2:]
+            if os.path.exists(xyz_path):
+                with open(xyz_path,'r') as xyzfile:
+                    self.coordinates = xyzfile.readlines()[2:]
+            else:
+                print("wrote gaussian input without coordinates")
             if self.debug: print(f"self.coordinates after reading:\n{self.coordinates}")
         
         with open(full_path,'w') as gjffile:
@@ -167,7 +171,8 @@ class GaussianInput(CCInput):
             gjffile.write(f"{self.title}\n")
             gjffile.write(f"\n")
             gjffile.write(f"{self.charge} {self.multiplicity}\n")
-            gjffile.writelines(self.coordinates)
+            if self.coordinates:
+                gjffile.writelines(self.coordinates)
             gjffile.write(f"\n\n")
     
     def load_file(self,path):
@@ -237,8 +242,9 @@ class GaussianInput(CCInput):
                 if self.debug: print(f'adding line to title. Title so far: {self.title}')
             
             elif re.match(r'\s*\d+\s+\d+',line):
-                self.charge = int(re.search(r'(\d+)(?:\s+\d+)',line).group(1))
-                self.multiplicity = int(re.search(r'(?:\d+\s+)(\d+)',line).group(1))
+                #THE OFFENDER: \d+ does not see the '-' character
+                self.charge = int(re.search(r'([-0-9]+)(?:\s+\d+)',line).group(1))
+                self.multiplicity = int(re.search(r'(?:[-0-9]+\s+)(\d+)',line).group(1))
                 read_coordinates_flag = True
                 if self.debug: print(f'reading charge and multiplicity. Charge: {self.charge} Multiplicity: {self.multiplicity}')
             
@@ -348,10 +354,6 @@ class xTBScript(SbatchScript):
 
 
 
-
-
-
-
 class Job:
     def __init__(self):
         self.debug = False
@@ -443,8 +445,8 @@ class InputBuilder:
         newjob = Job()
         
         newjob.directory = self.config['write_directory']
-        newjob.xyz_directory = self.config['xyz_directory'] 
-        newjob.xyz = self.config['xyz_file']
+        newjob.xyz_directory = self.config.get('xyz_directory',None) 
+        newjob.xyz = self.config.get('xyz_file',None)
 
         newjob.sh = self.build_submit_script() 
         newjob.inp = self.build_input()
@@ -489,8 +491,10 @@ class ORCAInputBuilder(InputBuilder):
             self.config['scf_tolerance'],
             self.config['verbosity'],
         ]
-        #CHECK HERE FOR ERROR
-        inp.keywords.extend(self.config['other_keywords'])
+        if type(self.config['other_keywords']) is list:
+            inp.keywords.extend(self.config['other_keywords'])
+        elif type(self.config['other_keywords']) is str:
+            inp.keywords.append(self.config['other_keywords'])
 
         maxcore = int(self.config['mem_per_cpu_GB']) * 1000 * (3 / 4)
         inp.strings.append(f"%maxcore {int(maxcore)}")
@@ -556,8 +560,12 @@ class GaussianInputBuilder(InputBuilder):
         ]
         if self.config['solvent']:
             inp.keywords.append(f"SCRF(SMD,Solvent={self.config['solvent']})",)
-        inp.keywords.append(self.config['other_keywords'])
-        
+        #TODO: this is untested, look here if there's a problem. 
+        if type(self.config['other_keywords']) is list:
+            inp.keywords.extend(self.config['other_keywords']) 
+        elif type(self.config['other_keywords']) is str:
+            inp.keywords.append(self.config['other_keywords'])
+    
         if self.config['broken_symmetry']:
             raise ValueError("Gaussian does not support Broken Symmetry")
         if self.config['mix_guess']:
@@ -609,9 +617,11 @@ class CRESTInputBuilder(InputBuilder):
         if self.config['noreftopo']:
             options.append('--noreftopo')
             
-        if self.config['other_keywords']:
+        if type(self.config['other_keywords']) is list:
             for keyword in self.config['other_keywords']:
                 options.append(f"--{keyword}")
+        elif type(self.config['other_keywords']) is str:
+            options.append(f"--{self.config['other_keywords']}")
 
         submit_line = f"{command} {xyz_file} > {basename}.out " + " ".join(options)
         return submit_line
@@ -646,6 +656,8 @@ class xTBInputBuilder(InputBuilder):
             print('Warning: invalid functional, defaulting to gfn2')
             options.append('--gfn 2')
 
+        options.append(f"-P {self.config['num_cores']}")
+        
         options.append(f"--chrg {self.config['charge'] if self.config['charge'] else 0}")
         
         if self.config['uks']:
@@ -657,9 +669,11 @@ class xTBInputBuilder(InputBuilder):
         if self.config['run_type']:
             options.append(f"--{self.config['run_type']}")
             
-        if self.config['other_keywords']:
+        if type(self.config['other_keywords']) is list:
             for keyword in self.config['other_keywords']:
                 options.append(f"--{keyword}")
+        elif type(self.config['other_keywords']) is str:
+            options.append(f"--{self.config['other_keywords']}")
 
         
         submit_line = f"{command} {xyz_file} > {basename}.out " + " ".join(options)
@@ -689,3 +703,21 @@ class pyAromaInputBuilder(InputBuilder):
 
     def build_input(self):
         return None
+
+    #TODO: rename this json loader function, this is kinda dumb
+class BatchRunnerInputBuilder(InputBuilder):
+    def __init__(self):
+        self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,BATCHRUNNERCONFIG))
+
+    def submit_line(self):
+        command = self.config['path_to_program']
+        job_basename = self.config['job_basename']
+        max_jobs = self.config['max_jobs']
+        verbose = self.config['verbosity']
+
+        verbose_string = '-v' if verbose else ''
+        submit_line = f"python3 {command} batchfile.csv {verbose_string} -j {max_jobs} > {job_basename}.out"
+        return submit_line
+
+    def build_input(self):
+        return None #this is handled by input_combi

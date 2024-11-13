@@ -125,6 +125,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         if not in_progress: #this isn't an if-else because in_progress can be changed in the last conditional
             #TODO: FIX THIS
             if not self.silent: print(f'updating status with ruleset found at: {self.ruleset}')
+            if not self.silent: print(f"slurm output before static success check: {output}")
             self.check_success_static()
             return 
             
@@ -158,6 +159,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             output = processdata.stdout.decode('utf-8')
             try:    
                 if debug: print(f"slurm submission output: {output}")
+                #TODO: put this back the way it was. this will be silenced for now to brute force
                 if re.search('error:',output):
                     if debug: print(f"Directory: {self.directory}")
                     raise ValueError(f"Bad submission script! output: {output}")
@@ -183,6 +185,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         path = os.path.join(self.directory,self.job_name) + self.output_extension
         data = None
         for trial in range(0,3):
+            #TODO: fix failure here
             if os.path.exists(path):
                 data = file_parser.extract_data(
                     path,
