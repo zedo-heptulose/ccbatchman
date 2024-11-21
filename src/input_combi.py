@@ -2,6 +2,7 @@ import helpers
 import input_files
 import itertools
 import os
+import re
 import copy
 import pandas as pd
 
@@ -16,6 +17,27 @@ import pandas as pd
 #idea being, iterate_inputs(*sort_flags(lodod))
 
 FLAGS = ['!directories']
+
+def delete_old_tmp_files(root_directory):
+    ledger_path = os.path.join(root_directory,'__ledger__.csv')
+    if not os.path.exists(ledger_path):
+        raise ValueError('tried to delete old .tmp files without ledger')
+    ledger = pd.read_csv(ledger_path,sep='|')
+    failed_mask = ledger['job_status'] == 'failed'
+    for i, row in ledger.loc[failed_mask].iterrows():
+        # print(row)
+        job_dir = row['job_directory']
+        files = os.listdir(job_dir)
+        for file in files:
+            path = os.path.join(job_dir,file)
+            basename = os.path.basename(file)
+            if re.search('\.tmp',basename):
+                # print(path) #dry run with print before we remove
+                os.remove(path)
+            if re.search('\.rwf',basename):
+                os.remove(path)
+                
+                
 
 def do_everything(root_directory,run_settings,*args):
     """
@@ -152,8 +174,8 @@ def write_input_array(_configs,root_directory,**kwargs):
                 if not job_succeeded:
                     ledger.loc[identify_mask, 'job_id'] = f"{-1}"
                     ledger.loc[identify_mask, 'job_status'] = 'not_started'
-                    ledger.loc[identify_mask, 'coords_from'] = config['!coords_from']
-                    ledger.loc[identify_mask,'xyz_filename'] = config['!xyz_file']
+                    ledger.loc[identify_mask, 'coords_from'] = config.get('!coords_from',None)
+                    ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
              
             if not job_succeeded:
                 job.create_directory(force=True)
@@ -169,8 +191,8 @@ def write_input_array(_configs,root_directory,**kwargs):
             
                 ledger.loc[identify_mask, 'job_id'] = f"{-1}"
                 ledger.loc[identify_mask, 'job_status'] = 'not_started'
-                ledger.loc[identify_mask, 'coords_from'] = config['!coords_from']
-                ledger.loc[identify_mask,'xyz_filename'] = config['!xyz_file']
+                ledger.loc[identify_mask, 'coords_from'] = config.get('!coords_from',None)
+                ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
                 
             job.create_directory(force=True)
              

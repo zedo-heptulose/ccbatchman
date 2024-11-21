@@ -163,9 +163,10 @@ class GaussianInput(CCInput):
             if self.debug: print(f"self.coordinates after reading:\n{self.coordinates}")
         
         with open(full_path,'w') as gjffile:
+            path_noext = os.path.splitext(full_path)[0]
             gjffile.write(f"%nprocshared={self.nprocs}\n")
             gjffile.write(f"%mem={int(self.nprocs*self.mem_per_cpu_gb)}gb\n")
-            gjffile.write(f"%chk={full_path}.chk\n")
+            gjffile.write(f"%chk={path_noext}.chk\n")
             gjffile.write(f"#{' '.join(self.keywords)}\n")
             gjffile.write(f"\n")
             gjffile.write(f"{self.title}\n")
@@ -571,8 +572,8 @@ class GaussianInputBuilder(InputBuilder):
         if self.config['mix_guess']:
             inp.keywords.append('Guess=Mix')
 
-        nprocs = self.config['num_cores']
-        mem_per_cpu_gb = self.config['mem_per_cpu_GB']
+        inp.nprocs = self.config['num_cores']
+        inp.mem_per_cpu_gb = self.config['mem_per_cpu_GB']
         inp.charge = self.config['charge']
         inp.multiplicity = self.config['spin_multiplicity']
         inp.xyzfile = os.path.join(self.config['xyz_file']) 

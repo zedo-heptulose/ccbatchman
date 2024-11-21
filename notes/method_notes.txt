@@ -1,8 +1,0 @@
-METHODOLOGICAL NOTES
-
-ORCA only does magnetic coupling analysis and populations
-on first SCF run in a file
-
-we should really be doing BS jobs at the end of triplet geometries instead of triplet singlepoints
-
-CALCULATE THERMODYNAMICS OF SPIN TRAPPED RADICAL

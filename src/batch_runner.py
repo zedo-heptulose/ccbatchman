@@ -293,6 +293,11 @@ class BatchRunner:
             new_job.directory = row['job_directory'] 
             new_job.job_name = row['job_basename'] #sure
             new_job.restart = True  #why does this fail
+            #for update_status: modify it to check if any outputs exist.
+            #we will allow the static part to output not_started
+            #if no .out files exist.
+            new_job.update_status()
+            new_job.write_json()  
             self.jobs.append(new_job) 
             if self.debug: print(f"JOB ADDED TO QUEUE. {new_job.job_name}")
  

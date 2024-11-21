@@ -6,12 +6,13 @@ import pandas
 import file_parser
 
 
-RULESDIR = 'rules/'
+RULESDIR = '/gpfs/home/gdb20/code/batch-manager/config/rules/'
 ORCARULES = 'orca_rules.dat'
 
 
 class OrcaPostProcessor:
-    def __init__(self,dirname=None,basename=None):
+    def __init__(self,dirname=None,basename=None,**kwargs):
+        self.debug = kwargs.get('debug',False)
         #filepath stuff
         self.output_extension = '.out'
         self.basename = basename
@@ -52,13 +53,14 @@ class OrcaPostProcessor:
     def read_raw_state(self):
         self.data = file_parser.extract_data(self.output_path,self.parser_rules_path)
         if not self.data['success']:
-            print("warning: reading data from failed job!")
+            if self.debug: print("warning: reading data from failed job!")
         return self
 
     def parse_frontier_UNO_occupations(self):
         '''
         here, we parse everything [2.00, 0.00]
         '''
+        if self.debug: print(F"reading file at {self.output_path}")
         with open(self.output_path,'r') as output_file:
             lines = output_file.readlines()
         occupations = []
@@ -66,9 +68,10 @@ class OrcaPostProcessor:
         for line in lines:
             if re.match(r'\s*UHF\s+NATURAL\s+ORBITALS',line):
                 search = True
+                occupations = []
            
             elif re.match(r'\s*QR-MO\s+GENERATION',line):
-                break
+                search = False
 
             if search:
                 matches = re.findall(r'(?:N\[\s*\d+\]=\s+)(\d\.\d+)',line)
@@ -81,33 +84,53 @@ class OrcaPostProcessor:
         try:
             first_0 = occupations.index(0.000)
         except:
-            first_0 = -1 #just use the end of th list if none
+            first_0 = -1 #just use the end of the list if none
 
-        print(last_2)
-        print(first_0)
-        self.frontier_uno_occupations = occupations[last_2:first_0]
+        if self.debug: print(last_2)
+        if self.debug: print(first_0)
+        if self.debug: print("OCCUPATIONS:")
+        if self.debug: print(occupations)
         #find index of first one or last value larger than one
         one_found = False
         hono_end = -1
-        for index, value in enumerate(self.frontier_uno_occupations):
-            if value == 1.000:
+        for index, value in enumerate(occupations):
+            # print(value)
+            if value == 2.000:
+                if self.debug: print('2.000 found')
                 hono_end = index + 1
-                print('warning: last hono 1.000, check for edge case')
+                if self.debug: print(hono_end)
+                
+            elif value == 1.000:
+                if self.debug: print('1.000 found')
+                hono_end = index + 1
+                if self.debug: print('warning: last hono 1.000, check for edge case')
+                if self.debug: print(hono_end)
                 break
+                
             elif value < 1.000:
+                if self.debug: print('val less than 1')
                 hono_end = index
-        
-        self.HONOs = self.frontier_uno_occupations[0:hono_end]
-        self.LUNOs = self.frontier_uno_occupations[hono_end:-1]
+                if self.debug: print(hono_end)
+                break #this break statement fixed it
+                
+        if self.debug: print(f"hono_end: {hono_end}")
 
-        #calculating diradical characters and storing in data
-        
-        T_HO = (self.HONOs[-1] - self.LUNOs[0]) / 2
+        self.HONOs = occupations[:hono_end]
+        self.LUNOs = occupations[hono_end:]
+
+        HONO = self.HONOs[-1]
+        LUNO = self.LUNOs[0]
+ 
+        T_HO = (HONO - LUNO) / 2
         gamma_0 = 1 - 2*T_HO/(1 + T_HO**2)
+        # print(gamma_0)
         self.data['diradical_character_yamaguchi'] = gamma_0
         
         self.data['diradical_character_naive'] = self.LUNOs[0]
-        self.data['tetraradical_character_naive'] = self.LUNOs[1]
+        if len(self.LUNOs) >= 2:
+            self.data['tetraradical_character_naive'] = self.LUNOs[1]
+        else:
+            self.data['tetraradical_character_naive'] = 0
 
         return self
         
@@ -183,10 +206,10 @@ class OrcaPostProcessor:
         try:
             G_au = self.data['G_au']
             H_au = self.data['H_au']
-            E_au = self.data['E_au']
+            # E_au = self.data['E_au']
             self.data['G_minus_E_el_au'] = G_au - E_el_au
             self.data['H_minus_E_el_au'] = H_au - E_el_au
-            self.data['E_minus_E_el_au'] = E_au - E_el_au
+            # self.data['E_minus_E_el_au'] = E_au - E_el_au
             self.data['thermochem'] = True
         except:
             self.data['thermochem'] = False
@@ -195,7 +218,11 @@ class OrcaPostProcessor:
     def delta_E_homo_lumo(self):
         raise NotImplementedError()
 
-    def pp_routine(self):
+    def orca_pp_routine(self):
+        '''
+        TODO: this should raise an exception if the job isn't
+        orca. 
+        '''
         unos_parsed = True
         bs_parsed = True        
         self.read_raw_state()
@@ -204,7 +231,7 @@ class OrcaPostProcessor:
         
         try:
             self.parse_frontier_UNO_occupations()
-        #self.delta_E_homo_lumo()
+        # self.delta_E_homo_lumo()
         except: 
             unos_parsed = False
             
@@ -216,12 +243,12 @@ class OrcaPostProcessor:
         self.data = delta_unit_conversions(self.data)
         self.write_json()
         if not unos_parsed or not bs_parsed:
-            print("warning in run with")
-            print(f"directory: {self.dirname}")
-            print(f"basename: {self.basename}")
-            print(f"ORCA JOB")
-            if not unos_parsed: print("Could not parse UNO occs")
-            if not bs_parsed: print("Could not parse BS spin-corrected energies")
+            if self.debug: print("warning in run with")
+            if self.debug: print(f"directory: {self.dirname}")
+            if self.debug: print(f"basename: {self.basename}")
+            if self.debug: print(f"ORCA JOB")
+            if not unos_parsed and self.debug: print("Could not parse UNO occs")
+            if not bs_parsed and self.debug: print("Could not parse BS spin-corrected energies")
 
 def delta_unit_conversions(data):
     '''

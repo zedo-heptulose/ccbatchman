@@ -10,7 +10,7 @@ import json
 import time
 
 #TODO: FIX THIS
-RULEPATH = '/gpfs/home/gdb20/code/batch-manager/rules/'
+RULEPATH = '/gpfs/home/gdb20/code/batch-manager/config/rules/'
 ORCARULES = os.path.join(RULEPATH,'orca_rules.dat')
 GAUSSRULES = os.path.join(RULEPATH,'gaussian_rules.dat')
 CRESTRULES = os.path.join(RULEPATH,'crest_rules.dat')
@@ -53,13 +53,14 @@ class JobHarness:
         with open(os.path.join(self.directory,'run_info.json'),'w') as json_file:
             json.dump(data_dict, json_file,indent="")
 
-    def from_dict(self,data):
+    def from_dict(self,data): #TODO: FIX RULESET HACK!
         self.directory = data['directory']
         self.job_name = data['job_name']
         self.status = data['status']
         self.job_id = data['job_id']
         self.restart = data['restart']
-        self.ruleset = data['ruleset']
+        if not self.ruleset:
+            self.ruleset = data['ruleset']
         return self
     
     def read_json(self,filename):
@@ -68,6 +69,7 @@ class JobHarness:
         self.from_dict(data)
 
     
+    #all that's required is a simple update_status here...
     def update_status(self,**kwargs):
         '''
         The heavy hitter state reading function
@@ -134,6 +136,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         used for jobs which are not running; they either succeeded or failed
         this is a separate function so that it can be called on its own, even though the logic is simple
         '''
+        print(f"using ruleset at path: {self.ruleset}")
         temp_status = file_parser.extract_data(
                           f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
                           self.ruleset
@@ -143,8 +146,14 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
     def interpret_fp_out(self, file_parser_output):
         #this function exists because of edge case where Gaussian runner needs to override this
         #Gaussian OPT+FREQ jobs output 'normal temination'... twice
-        self.status =( 'succeeded' if file_parser_output['success'] else 'failed')
-
+        output_exists = False
+        for file in os.listdir(self.directory):
+            if file.endswith(self.output_extension):
+                output_exists = True
+        if output_exists:
+            self.status = ('succeeded' if file_parser_output['success'] else 'failed')
+        else:
+            self.status = 'not_started'
         
     def submit_job(self,**kwargs):
         debug = kwargs.get('debug',False)
