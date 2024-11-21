@@ -242,7 +242,7 @@ class GaussianInput(CCInput):
                 self.title += line
                 if self.debug: print(f'adding line to title. Title so far: {self.title}')
             
-            elif re.match(r'\s*\d+\s+\d+',line):
+            elif re.match(r'\s*[-0-9]+\s+\d+',line):
                 #THE OFFENDER: \d+ does not see the '-' character
                 self.charge = int(re.search(r'([-0-9]+)(?:\s+\d+)',line).group(1))
                 self.multiplicity = int(re.search(r'(?:[-0-9]+\s+)(\d+)',line).group(1))
