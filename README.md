@@ -32,7 +32,7 @@
 <h3 align="center">CC Batch Manager</h3>
 
   <p align="center">
-    Utilities for running batch computational chemistry jobs in a SLURM environment. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for calculating thermochemistry. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.
+    Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.
     <br />
     <a href="https://github.com/zedo-heptulose/CC-batch-manager"><strong>Explore the docs »</strong></a>
     <br />
@@ -80,15 +80,19 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `zedo-heptulose`, `CC-batch-manager`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `CC Batch Manager`, `Utilities for running batch computational chemistry jobs in a SLURM environment. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for calculating thermochemistry. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.`
+Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `zedo-heptulose`, `CC-batch-manager`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `CC Batch Manager`, `Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 
-### Built With
+### Dependencies
 
-* [![Next][Next.js]][Next-url]
+Python 3.8+
+NumPy
+pandas
+
+<!--* [![Next][Next.js]][Next-url]
 * [![React][React.js]][React-url]
 * [![Vue][Vue.js]][Vue-url]
 * [![Angular][Angular.io]][Angular-url]
@@ -96,7 +100,7 @@ Here's a blank template to get started: To avoid retyping too much info. Do a se
 * [![Laravel][Laravel.com]][Laravel-url]
 * [![Bootstrap][Bootstrap.com]][Bootstrap-url]
 * [![JQuery][JQuery.com]][JQuery-url]
-
+-->
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -117,20 +121,15 @@ This is an example of how to list things you need to use the software and how to
 
 ### Installation
 
-1. Get a free API Key at [https://example.com](https://example.com)
-2. Clone the repo
+1. Clone the repo
    ```sh
    git clone https://github.com/zedo-heptulose/CC-batch-manager.git
    ```
-3. Install NPM packages
+2. Install prerequisite packages
    ```sh
-   npm install
+   conda install numpy pandas
    ```
-4. Enter your API in `config.js`
-   ```js
-   const API_KEY = 'ENTER YOUR API';
-   ```
-5. Change git remote url to avoid accidental pushes to base project
+3. Change git remote url to avoid accidental pushes to base project
    ```sh
    git remote set-url origin zedo-heptulose/CC-batch-manager
    git remote -v # confirm the changes
