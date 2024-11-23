@@ -32,7 +32,7 @@
 <h3 align="center">CC Batch Manager</h3>
 
   <p align="center">
-    project_description
+    Utilities for running batch computational chemistry jobs in a SLURM environment. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for calculating thermochemistry. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.
     <br />
     <a href="https://github.com/zedo-heptulose/CC-batch-manager"><strong>Explore the docs »</strong></a>
     <br />
@@ -80,7 +80,7 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `zedo-heptulose`, `CC-batch-manager`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `CC Batch Manager`, `project_description`
+Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `zedo-heptulose`, `CC-batch-manager`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `CC Batch Manager`, `Utilities for running batch computational chemistry jobs in a SLURM environment. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for calculating thermochemistry. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
