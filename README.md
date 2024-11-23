@@ -80,7 +80,7 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `zedo-heptulose`, `CC-batch-manager`, `twitter_handle`, `linkedin_username`, `email_client`, `email`, `CC Batch Manager`, `Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.`
+Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `zedo-heptulose`, `CC-batch-manager`, `twitter_handle`, `linkedin_username`, `gageisokay_client`, `email`, `CC Batch Manager`, `Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -131,7 +131,7 @@ This is an example of how to list things you need to use the software and how to
    ```
 3. Change git remote url to avoid accidental pushes to base project
    ```sh
-   git remote set-url origin zedo-heptulose/CC-batch-manager
+   git remote set-url origin github-username/repo-name
    git remote -v # confirm the changes
    ```
 
@@ -167,10 +167,7 @@ See the [open issues](https://github.com/zedo-heptulose/CC-batch-manager/issues)
 <!-- CONTRIBUTING -->
 ## Contributing
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
-
 If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
-Don't forget to give the project a star! Thanks again!
 
 1. Fork the Project
 2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
@@ -200,14 +197,14 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Your Name - [@twitter_handle](https://twitter.com/twitter_handle) - email@email_client.com
+Gage Bayliss - gageisokay@gmail.com
 
 Project Link: [https://github.com/zedo-heptulose/CC-batch-manager](https://github.com/zedo-heptulose/CC-batch-manager)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-
+<!--
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
@@ -216,7 +213,7 @@ Project Link: [https://github.com/zedo-heptulose/CC-batch-manager](https://githu
 * []()
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
+-->
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
