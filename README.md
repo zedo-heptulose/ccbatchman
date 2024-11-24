@@ -222,7 +222,7 @@ batch_runner_configs = {'max_jobs': 10, 'job_basename' : 'my_workflow'}
 input_combi.do_everything(
   root_dir,
   batch_runner_configs,
-  [global_configs,molecules,composite_workflow],
+  [global_configs,solvents,molecules,composite_workflow],
 )
 ```
 When we navigate to the directory we set, we should see something like this:
