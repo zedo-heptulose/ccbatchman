@@ -21,24 +21,23 @@
 [![Issues][issues-shield]][issues-url]
 [![MIT License][license-shield]][license-url]
 
-
-<!-- PROJECT LOGO -->
+<!-- PROJECT LOGO 
 <br />
 <div align="center">
   <a href="https://github.com/zedo-heptulose/CC-batch-manager">
     <img src="images/logo.png" alt="Logo" width="80" height="80">
   </a>
-
+-->
 <h3 align="center">CCBatchMan</h3>
 
   <p align="center">
-    Your man(ager) for CC Batches. Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for automating thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.
-    <br />
+    Your man(ager) for CC Batches. Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job runner, and an output file postprocessor. Also includes data structures for automating thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.
+<!--     <br />
     <a href="https://github.com/zedo-heptulose/CC-batch-manager"><strong>Explore the docs »</strong></a>
+    <br /> -->
     <br />
-    <br />
-    <a href="https://github.com/zedo-heptulose/CC-batch-manager">View Demo</a>
-    ·
+<!--     <a href="https://github.com/zedo-heptulose/CC-batch-manager">View Demo</a>
+    · -->
     <a href="https://github.com/zedo-heptulose/CC-batch-manager/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
     <a href="https://github.com/zedo-heptulose/CC-batch-manager/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
@@ -78,8 +77,6 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
-
 ```plaintext
 ccbatchman/
 ├── src/
@@ -108,7 +105,7 @@ ccbatchman/
 |       ├── orca_rules.dat
 |       ├── pyaroma_rules.dat
 |       └── xtb_rules.dat
-├── testing/
+├── examples/
 ├── LICENSE
 └── README.md
 ```
@@ -119,19 +116,9 @@ ccbatchman/
 
 ### Dependencies
 
-Python 3.8+
-NumPy
-pandas
+Python 3.8+, NumPy, pandas. 
+Current implementation requires the SLURM job scheduler.
 
-<!--* [![Next][Next.js]][Next-url]
-* [![React][React.js]][React-url]
-* [![Vue][Vue.js]][Vue-url]
-* [![Angular][Angular.io]][Angular-url]
-* [![Svelte][Svelte.dev]][Svelte-url]
-* [![Laravel][Laravel.com]][Laravel-url]
-* [![Bootstrap][Bootstrap.com]][Bootstrap-url]
-* [![JQuery][JQuery.com]][JQuery-url]
--->
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -139,8 +126,7 @@ pandas
 <!-- GETTING STARTED -->
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 
@@ -151,7 +137,7 @@ This is an example of how to list things you need to use the software and how to
   ```
   
 ### Installation
-s
+
 1. Clone the repo
    ```sh
    git clone https://github.com/zedo-heptulose/CC-batch-manager.git
@@ -182,9 +168,136 @@ s
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+### Generating input files and workflows
+<!--a flowchart would go a long way here-->
+The combinatorial input generator creates input files separated into meaningfully named directories.
+```python
+import ccbatchman.input_combi
 
-_For more examples, please refer to the [Documentation](https://example.com)_
+global_configs = {'num_cores' : 8, 'mem_per_cpu_GB' : 4, 'runtime' : '1-00:00:00'}
+
+#solvent settings to iterate through
+solvents = {
+  'reaction_in_water' : {'solvent' : 'water'},
+  'reaction_in_thf' : {'solvent' : 'thf'},
+  'reaction_in_dcm' : {'solvent' : 'dcm'},
+}
+
+#getting molecules to iterate through
+path_to_xyz = '/path/to/directory/containing/xyz/files/'
+molecules = input_combi.xyz_files_from_directory(path_to_xyz) #returns a dict of dicts with directories and filenames of xyz files
+molecules['!directories'] = True #separate this category into directories. 
+
+
+crest_conformer_search_gfn2 = {
+  'program' : 'CREST',
+  'functional' : 'gfn2',
+  'noreftopo' : True
+}
+orca_opt_freq_r2scan3c = {
+  'program' : 'ORCA',
+  'functional' : 'r2SCAN-3c',
+  'run_type':'opt freq',
+  '!coords_from': '../conformer_search', #use coordinates from job with directory 'root/path_to_this_dir/../crest'
+  '!xyz_file':'crest_best.xyz' #look for (output) xyz file 'crest_best.xyz' in this directory
+}
+orca_singlepoint_wb97x3c = {
+  'program' : 'ORCA',
+  'functional' :'wb97x-3c',
+  '!coords_from' : '../optimization_frequency',
+  '!xyz_file':'optimization_frequency.xyz',
+  '!overwrite' : True #will overwrite jobs not flagged succeeded in ledger
+}
+
+composite_workflow = {
+  'conformer_search' : crest_conformer_search_gfn2,
+  'optimization_frequency' : orca_opt_freq_r2scan3c,
+  'singlepoint' : orca_singlepoint_wb97x3c,
+}
+```
+Once you have defined several sets of options, we can iterate through every combination of them and create our jobs.
+```python
+root_dir = '/where/you/run/your/job/'
+batch_runner_configs = {'max_jobs': 10, 'job_basename' : 'my_workflow'}
+input_combi.do_everything(
+  root_dir,
+  batch_runner_configs,
+  [global_configs,molecules,composite_workflow],
+)
+```
+When we navigate to the directory we set, we should see something like this:
+```plaintext
+run_root_dir/
+├── my_workflow.sh
+├── batchfile.csv
+├── reaction_in_dcm/
+|   ├── reactant/
+|   │   ├── conformer_search/
+|   |   |   └── conformer_search.out
+|   │   ├── optimization_frequency/
+|   |   |   └── optimization_frequency.out
+|   │   └── singlepoint/
+|   |       └── singlepoint.out
+|   └── product/
+|       ├── conformer_search/
+|       ├── optimization_frequency/
+|       └── singlepoint/
+├── reaction_in_thf/
+|   ├── reactant/
+|   │   ├── conformer_search/
+|   │   ├── optimization_frequency/
+|   │   └── singlepoint/
+|   └── product/
+|       ├── conformer_search/
+|       ├── optimization_frequency/
+|       └── singlepoint/
+├── reaction_in_water/
+...
+```
+
+### Running jobs
+> [!IMPORTANT]
+> Follow the steps in Getting Started before running the submission script, or this will not work.
+> 
+In the directory you set as the root when generating input, submit the automatically generated script:
+```sh
+sbatch my_workflow.sh
+```
+After our jobs start running, 
+
+### Parsing output
+We can use parse_tree to process the data we generate. These data structures are designed for jobs arranged in a uniform hierarchy, of the sort generated by input_combi. Example:
+
+The parse_tree_builders make it easy to programmatically digest output files stored in symmetric directory structures like this one. As an example:
+```python
+import pandas as pd
+import parse_tree_builders
+
+jobs_root = 'path/to/root/'
+reactions = ['reaction_in_thf','reaction_in_dcm','reaction_in_water']
+
+ptb = parse_tree_builders.SimpleThermoTreeBuilder({
+    #specify names of directories to look for reactants and products, and reaction coefficients
+    'reactants' : [('reactant',1)], # list of tuples. (name of subdirectory with reactant jobs, reaction coefficient)
+    'products' : [('product',1)],
+    #specify subdirectories of each reactant and product for thermostatistical correction and electronic energy.
+    'opt_freq_dir' : 'optimization_frequency', 
+    'singlepoint_dir' : 'singlepoint'
+})
+
+data:
+for reaction in reactions:
+  working_root = jobs_root + reaction
+  ptb = parse_tree_builders.SimpleThermoTreeBuilder({
+    #root in this context is the root node of the tree, which is a ThermoNode object
+    'root_basename' : reaction, #what we call label the .json object we store this derived data in
+    'root_dir' : working_root,
+  })
+  pt = ptb.build()
+  pt.depth_first_parse()
+  data.append(pd.DataFrame(st.data))
+all_data = pd.concat(data)
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -193,10 +306,15 @@ _For more examples, please refer to the [Documentation](https://example.com)_
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-    - [ ] Nested Feature
+- [ ] Improve output of batch_runner.py
+- [ ] Implement unit tests
+- [ ] Integrate Atomistic Simulation Environment for running jobs apart from SLURM 
+- [ ] Add more options for workflow creation
+    - [ ] Job priorities
+    - [ ] Transfer orbitals
+- [ ] Improve error handling
+    - [ ] Mark special status for optimization + frequency jobs producing imaginary frequencies
+    - [ ] More detailed error output for failed jobs
 
 See the [open issues](https://github.com/zedo-heptulose/CC-batch-manager/issues) for a full list of proposed features (and known issues).
 
@@ -228,7 +346,7 @@ If you have a suggestion that would make this better, please fork the repo and c
 <!-- LICENSE -->
 ## License
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+Distributed under the MIT License. See `LICENSE` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -237,7 +355,7 @@ Distributed under the MIT License. See `LICENSE.txt` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Gage Bayliss - gageisokay@gmail.com
+Gage Bayliss - baylissgage@gmail.com
 
 Project Link: [https://github.com/zedo-heptulose/CC-batch-manager](https://github.com/zedo-heptulose/CC-batch-manager)
 
@@ -248,12 +366,10 @@ Project Link: [https://github.com/zedo-heptulose/CC-batch-manager](https://githu
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-* []()
-* []()
-* []()
+* [othneildrew's Best-README-Template](https://github.com/othneildrew/Best-README-Template)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
--->
+
 
 
 <!-- MARKDOWN LINKS & IMAGES -->
