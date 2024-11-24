@@ -80,7 +80,38 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `zedo-heptulose`, `CC-batch-manager`, `twitter_handle`, `linkedin_username`, `gageisokay_client`, `email`, `CC Batch Manager`, `Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.`
+```plaintext
+ccbatchman/
+├── src/
+│   ├── input_generator.py
+│   ├── input_combi.py
+│   ├── batch_runner.py
+│   ├── job_harness.py
+│   ├── editor.py
+│   ├── helpers.py
+│   ├── file_parser.py
+│   ├── postprocessor.py
+│   ├── parse_tree.py
+│   ├── parse_tree_builders.py
+│   └── __init__.py
+├── config/
+|   ├── input_generator_config/
+|   |   ├── batch_runner_config.json
+|   |   ├── crest_config.json
+|   |   ├── gaussian_config.json
+|   |   ├── orca_config.json
+|   |   ├── pyaroma_config.json
+|   |   └── xtb_config.json
+|   └── file_parser_config/
+|       ├── crest_rules.dat
+|       ├── gaussian_rules.dat
+|       ├── orca_rules.dat
+|       ├── pyaroma_rules.dat
+|       └── xtb_rules.dat
+├── testing/
+├── LICENSE
+└── README.md
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
