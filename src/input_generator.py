@@ -4,7 +4,7 @@ import shutil
 import json
 import helpers
 
-CONFIGPATH = '/gpfs/home/gdb20/code/batch-manager/config/'
+CONFIGPATH = '../config/input_generator_config/'
 ORCACONFIG = 'orca_config.json'
 GAUSSCONFIG = 'gaussian_config.json'
 CRESTCONFIG = 'crest_config.json'

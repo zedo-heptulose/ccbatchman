@@ -6,7 +6,7 @@ import pandas
 import file_parser
 
 
-RULESDIR = '/gpfs/home/gdb20/code/batch-manager/config/rules/'
+RULESDIR = '../config/file_parser_config/'
 ORCARULES = 'orca_rules.dat'
 
 

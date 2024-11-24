@@ -10,7 +10,7 @@ import json
 import time
 
 #TODO: FIX THIS
-RULEPATH = '/gpfs/home/gdb20/code/batch-manager/config/rules/'
+RULEPATH = '../batch-manager/config/file_parser_config/'
 ORCARULES = os.path.join(RULEPATH,'orca_rules.dat')
 GAUSSRULES = os.path.join(RULEPATH,'gaussian_rules.dat')
 CRESTRULES = os.path.join(RULEPATH,'crest_rules.dat')
