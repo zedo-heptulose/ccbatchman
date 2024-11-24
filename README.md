@@ -29,10 +29,10 @@
     <img src="images/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-<h3 align="center">CC Batch Manager</h3>
+<h3 align="center">CCBatchMan</h3>
 
   <p align="center">
-    Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.
+    Your man(ager) for CC Batches. Utilities for running batch computational chemistry jobs. Includes a combinatorial input generator, a job scheduler, and an output file postprocessor. Also includes data structures for automating thermochemical calculations with data from multiple runs. Supports automatically transferring coordinates from run to run and selectively overwriting failed and unfinished jobs with new settings. Supports several programs and is modular and easily extensible.
     <br />
     <a href="https://github.com/zedo-heptulose/CC-batch-manager"><strong>Explore the docs »</strong></a>
     <br />
@@ -118,9 +118,9 @@ This is an example of how to list things you need to use the software and how to
   ```sh
   npm install npm@latest -g
   ```
-
+  
 ### Installation
-
+s
 1. Clone the repo
    ```sh
    git clone https://github.com/zedo-heptulose/CC-batch-manager.git
@@ -129,11 +129,20 @@ This is an example of how to list things you need to use the software and how to
    ```sh
    conda install numpy pandas
    ```
+   or
+   ```sh
+   pip install numpy pandas
+   ```
 3. Change git remote url to avoid accidental pushes to base project
    ```sh
    git remote set-url origin github-username/repo-name
    git remote -v # confirm the changes
    ```
+
+4. In the configs directory, edit the .json files relevant to each program you plan to use.
+   You should, at minimum, set the path to each program or set the conda environment containing the program.
+
+   <!--will need to include some screenshots here-->
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
