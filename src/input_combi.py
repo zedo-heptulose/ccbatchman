@@ -1,5 +1,5 @@
 import helpers
-import input_files
+import input_generator
 import itertools
 import os
 import re
