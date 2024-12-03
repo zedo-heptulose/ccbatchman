@@ -1,7 +1,7 @@
 import os
 import shutil
 import re
-import input_files
+import input_generator
 
 def replace_xyz_file(input_path,xyz_path,program):
     '''
@@ -10,13 +10,13 @@ def replace_xyz_file(input_path,xyz_path,program):
     and the program that the input is for
     '''
     if program.lower() == 'orca':
-        input_obj = input_files.ORCAInput()
+        input_obj = input_generator.ORCAInput()
     elif program.lower() == 'gaussian':
-        input_obj = input_files.GaussianInput()
+        input_obj = input_generator.GaussianInput()
     elif program.lower() == 'xtb':
-        input_obj = input_files.xTBScript()
+        input_obj = input_generator.xTBScript()
     elif program.lower() == 'pyaroma':
-        input_obj = input_files.pyAromaScript()
+        input_obj = input_generator.pyAromaScript()
     else:
         raise ValueError(
         """

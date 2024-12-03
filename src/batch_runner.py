@@ -311,16 +311,16 @@ class BatchRunner:
         if self.debug: print("LEDGER AFTER READING BATCHFILE")
         if self.debug: self.ledger.to_csv('lar.csv')
         
-        if self.restart:
-            try:
+        if self.restart and os.path.exists('./__ledger__.csv'):
+            #try:
                 if self.debug: print("READING OLD LEDGER AND MERGING")
                 self.read_old_ledger()
                 if self.debug: print("LEDGER AFTER MERGE:")
                 if self.debug: self.ledger.to_csv('lam.csv')
                 if self.debug: print("RESTARTING OLD JOB HARNESSES")
                 self.restart_job_harnesses()
-            except:
-                print("NO LEDGER FOUND TO RESTART FROM")
+            #except:
+             #   print("NO LEDGER FOUND TO RESTART FROM")
         return self
 
     def parse_pipe(self,pipe_command):

@@ -9,8 +9,9 @@ import subprocess
 import json
 import time
 
-#TODO: FIX THIS
-RULEPATH = '../batch-manager/config/file_parser_config/'
+rule_relpath = '../config/file_parser_config/'
+src_dir = os.path.dirname(os.path.abspath(__file__))
+RULEPATH = os.path.normpath(os.path.join(src_dir,rule_relpath))
 ORCARULES = os.path.join(RULEPATH,'orca_rules.dat')
 GAUSSRULES = os.path.join(RULEPATH,'gaussian_rules.dat')
 CRESTRULES = os.path.join(RULEPATH,'crest_rules.dat')
@@ -137,9 +138,10 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         this is a separate function so that it can be called on its own, even though the logic is simple
         '''
         print(f"using ruleset at path: {self.ruleset}")
+        print(f"absolute ruleset path: {os.path.abspath(self.ruleset)}")
         temp_status = file_parser.extract_data(
                           f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
-                          self.ruleset
+                          self.ruleset #this fails?
                           )
         self.interpret_fp_out(temp_status)
     

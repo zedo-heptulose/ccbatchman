@@ -36,18 +36,15 @@ class SimpleThermoTreeBuilder:
 #FOR ONLY SINGLEPOINTS:
 #THIS IS HARDER... WE NEED delta G
     def build(self):
-        root = ParseTree.ThermoNode(self.root_basename)
-        reactant_nodes = [ParseTree.CompoundNode(reactant[0],self.opt_freq_dir,self.singlepoint_dir) for reactant in self.reactants]
-        reactant_coeffs = [reactant[1] for reactant in self.reactants]
-        reactant_nodes_and_coeffs = zip(reactant_nodes,reactant_coeffs)
+        root = parse_tree.ThermoNode(self.root_basename)
+        
+        reactant_nodes_and_coeffs = [(parse_tree.CompoundNode(reactant,self.opt_freq_dir,self.singlepoint_dir),coefficient) for reactant, coefficient in self.reactants.items()]
         root.set_reactants(reactant_nodes_and_coeffs)
 
-        product_nodes = [ParseTree.CompoundNode(product[0],self.opt_freq_dir,self.singlepoint_dir) for product in self.products]
-        product_coeffs = [product[1] for product in self.products]
-        product_nodes_and_coeffs = zip(product_nodes,product_coeffs)
+        product_nodes_and_coeffs = [(parse_tree.CompoundNode(product,self.opt_freq_dir,self.singlepoint_dir),coefficient) for product, coefficient in self.products.items()]
         root.set_products(product_nodes_and_coeffs)
         
-        pt = ParseTree.ParseTree()
+        pt = parse_tree.ParseTree()
         pt.root_node = root
         pt.root_dir = self.root_dir
         return pt
@@ -108,11 +105,11 @@ class BSTreeBuilder:
         return self
 
     def build(self):
-        root = ParseTree.ThermoNode(self.root_basename)
+        root = parse_tree.ThermoNode(self.root_basename)
         if self.is_compound:
             root.set_reactants([
                 (
-                ParseTree.CompoundNode(
+                parse_tree.CompoundNode(
                     self.singlet_dir,
                     self.opt_freq_dir,
                     self.singlet_sp_dir
@@ -122,7 +119,7 @@ class BSTreeBuilder:
             ])
             root.set_products([
                 (
-                ParseTree.CompoundNode(
+                parse_tree.CompoundNode(
                     self.triplet_dir,
                     self.opt_freq_dir,
                     self.triplet_sp_dir
@@ -144,7 +141,7 @@ class BSTreeBuilder:
             'Delta_E_st_v_au', #'Delta_E_st_v_au'
         ]
         
-        pt = ParseTree.ParseTree()
+        pt = parse_tree.ParseTree()
         pt.root_node = root
         pt.root_dir = self.root_dir
         return pt

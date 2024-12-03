@@ -5,8 +5,9 @@ import numpy
 import pandas
 import file_parser
 
-
-RULESDIR = '../config/file_parser_config/'
+rule_relpath = '../config/file_parser_config/'
+src_dir = os.path.dirname(os.path.abspath(__file__))
+RULESDIR = os.path.join(src_dir,rule_relpath)
 ORCARULES = 'orca_rules.dat'
 
 

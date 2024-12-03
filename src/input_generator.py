@@ -4,7 +4,9 @@ import shutil
 import json
 import helpers
 
-CONFIGPATH = '../config/input_generator_config/'
+config_relpath = '../config/input_generator_config/'
+src_dir = os.path.dirname(os.path.abspath(__file__))
+CONFIGPATH = os.path.normpath(os.path.join(src_dir,config_relpath)) + '/'
 ORCACONFIG = 'orca_config.json'
 GAUSSCONFIG = 'gaussian_config.json'
 CRESTCONFIG = 'crest_config.json'

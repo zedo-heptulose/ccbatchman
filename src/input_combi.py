@@ -54,7 +54,7 @@ def do_everything(root_directory,run_settings,*args):
         write_own_script(run_settings,root_directory)
 
 def write_own_script(run_settings,root_dir):
-    br_builder = input_files.BatchRunnerInputBuilder()
+    br_builder = input_generator.BatchRunnerInputBuilder()
     br_builder.change_params({
         **run_settings,
         'write_directory' : root_dir,
@@ -134,15 +134,15 @@ def write_input_array(_configs,root_directory,**kwargs):
     for config in configs:
         #print(f"CONFIG: \n{config}")
         if config['program'].lower() == 'orca':
-            inp = input_files.ORCAInputBuilder()
+            inp = input_generator.ORCAInputBuilder()
         elif config['program'].lower() == 'gaussian':
-            inp = input_files.GaussianInputBuilder()
+            inp = input_generator.GaussianInputBuilder()
         elif config['program'].lower() == 'crest':
-            inp = input_files.CRESTInputBuilder()
+            inp = input_generator.CRESTInputBuilder()
         elif config['program'].lower() == 'xtb':
-            inp = input_files.xTBInputBuilder()
+            inp = input_generator.xTBInputBuilder()
         elif config['program'].lower() == 'pyaroma':
-            inp = input_files.pyAromaInputBuilder()
+            inp = input_generator.pyAromaInputBuilder()
         else:
             raise ValueError('unsupported program')
         config['write_directory'] = os.path.join(root_directory,config['write_directory'],config['job_basename'])

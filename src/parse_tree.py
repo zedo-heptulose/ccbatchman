@@ -3,16 +3,6 @@ import re
 import json
 import pandas as pd
 import copy
-
-#use batch-manager parsing utilities
-import sys
-
-import sys
-#TODO: fix bad broken paths in all these
-path = '/gpfs/home/gdb20/code/batch-manager/src/' 
-if path not in sys.path:
-    sys.path.append(path)
-
 import postprocessing
 import file_parser
 
@@ -21,8 +11,9 @@ class ParseTree:
     #FUNCTIONS THIS NEEDS
     #depth first parsing
     def __init__(self,root=None):
-        root_node = None
-        root_dir = None
+        self.root_node = None
+        self.root_dir = None
+        self.display_function = None
 
     @property
     def data(self):
@@ -31,7 +22,6 @@ class ParseTree:
     def write_json(self):
         with open(self.root_node.json_path,'w') as json_file:
             json.dump(self.data,json_file,indent=2)
-
     
     def depth_first_parse(self,node=None,dirpath=None):
         current_node = node if node else self.root_node
@@ -41,6 +31,9 @@ class ParseTree:
         for key, node in current_node.children.items():
             new_dir = os.path.join(dirpath,node.basename) #an assumption is being made here...
             self.depth_first_parse(node,new_dir)
+            xyz_path = os.path.join(new_dir,node.basename) + '.xyz'
+            if self.display_function is not None and os.path.exists(xyz_path):
+               self.display_function(xyz_path)
         current_node.directory = dirpath #now we needn't specify directories within nodes when making them
         current_node.parse_data()
         current_node.write_json()
@@ -73,7 +66,13 @@ class ParseLeaf(ParseNode):
         if self.debug: print(f"opening file: {self.json_path}")
         if os.path.exists(self.json_path):
             with open(self.json_path, 'r') as json_file:
-                self.data = json.load(json_file)
+                #TODO: remove or formalize this
+                output_file = self.json_path[:-5] + '.out'
+                if self.debug: print(f'parsing output at {output_file}')
+                data = file_parser.extract_data(output_file,'/gpfs/home/gdb20/code/batch-manager/config/file_parser_config/orca_rules.dat')
+                self.data = data
+                # self.data = json.load(json_file)
+                
                 # print("data before postprocessing")
                 # print(self.data)
                 pp = postprocessing.OrcaPostProcessor(debug=self.debug)
