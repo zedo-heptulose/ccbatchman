@@ -227,8 +227,8 @@ run_root_dir/
 ├── reaction_in_dcm/
 |   ├── reactant/
 |   │   ├── conformer_search/
-|   |   |   ├── conformer_search.xyz
 |   |   |   ├── conformer_search.sh
+|   |   |   ├── conformer_search.xyz
 |   |   |   └── conformer_search.inp
 |   │   ├── optimization_frequency/
 |   |   |   ├── optimization_frequency.sh
