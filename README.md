@@ -117,7 +117,7 @@ ccbatchman/
 ### Dependencies
 
 Python 3.8+, NumPy, pandas. 
-Current implementation requires the SLURM job scheduler.
+Current implementation requires an environment with the SLURM job scheduler to run batch jobs.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -130,8 +130,7 @@ To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
 
-This is an example of how to list things you need to use the software and how to install them.
-* numpy and pandas
+* NumPy and pandas
    ```sh
    conda install numpy pandas
    ```
