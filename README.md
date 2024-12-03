@@ -131,18 +131,7 @@ To get a local copy up and running, follow these simple steps.
 ### Prerequisites
 
 This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
-  
-### Installation
-
-1. Clone the repo
-   ```sh
-   git clone https://github.com/zedo-heptulose/CC-batch-manager.git
-   ```
-2. Install prerequisite packages
+* numpy and pandas
    ```sh
    conda install numpy pandas
    ```
@@ -150,13 +139,15 @@ This is an example of how to list things you need to use the software and how to
    ```sh
    pip install numpy pandas
    ```
-<!--3. Change git remote url to avoid accidental pushes to base project
+  
+### Installation
+
+1. Clone the repo
    ```sh
-   git remote set-url origin github-username/repo-name
-   git remote -v # confirm the changes
+   git clone https://github.com/zedo-heptulose/CC-batch-manager.git
    ```
--->
-3. In the configs directory, edit the .json files relevant to each program you plan to use.
+   
+2. In the configs directory, edit the .json files relevant to each program you plan to use.
    You should, at minimum, set the path to each program or set the conda environment containing the program.
 
    <!--will need to include some screenshots here-->
