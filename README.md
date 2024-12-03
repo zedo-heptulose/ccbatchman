@@ -150,13 +150,13 @@ This is an example of how to list things you need to use the software and how to
    ```sh
    pip install numpy pandas
    ```
-3. Change git remote url to avoid accidental pushes to base project
+<!--3. Change git remote url to avoid accidental pushes to base project
    ```sh
    git remote set-url origin github-username/repo-name
    git remote -v # confirm the changes
    ```
-
-4. In the configs directory, edit the .json files relevant to each program you plan to use.
+-->
+3. In the configs directory, edit the .json files relevant to each program you plan to use.
    You should, at minimum, set the path to each program or set the conda environment containing the program.
 
    <!--will need to include some screenshots here-->
