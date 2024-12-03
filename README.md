@@ -227,11 +227,15 @@ run_root_dir/
 ├── reaction_in_dcm/
 |   ├── reactant/
 |   │   ├── conformer_search/
-|   |   |   └── conformer_search.out
+|   |   |   ├── conformer_search.xyz
+|   |   |   ├── conformer_search.sh
+|   |   |   └── conformer_search.inp
 |   │   ├── optimization_frequency/
-|   |   |   └── optimization_frequency.out
+|   |   |   ├── optimization_frequency.sh
+|   |   |   ...
 |   │   └── singlepoint/
-|   |       └── singlepoint.out
+|   |       ├── singlepoint.sh
+|   |       ...
 |   └── product/
 |       ├── conformer_search/
 |       ├── optimization_frequency/
