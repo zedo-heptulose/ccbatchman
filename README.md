@@ -300,14 +300,14 @@ print(pt.data)
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Improve output of batch_runner.py
+- [x] Improve output of batch_runner.py
 - [ ] Implement unit tests
 - [ ] Integrate Atomistic Simulation Environment for running jobs apart from SLURM 
 - [ ] Add more options for workflow creation
     - [ ] Job priorities
     - [ ] Transfer orbitals
 - [ ] Improve error handling
-    - [ ] Mark special status for optimization + frequency jobs producing imaginary frequencies
+    - [x] Mark optimization + frequency jobs producing imaginary frequencies as failed
     - [ ] More detailed error output for failed jobs
 
 See the [open issues](https://github.com/zedo-heptulose/CC-batch-manager/issues) for a full list of proposed features (and known issues).
