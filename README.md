@@ -284,7 +284,6 @@ ptb = parse_tree_builders.SimpleThermoTreeBuilder({
       'some_product' : 1 ,
       #'some_other_product' : 2.5
       },
-    #assuming each energy calculation involved two different runs, as in the example with the directory above.
     'opt_freq_dir' : 'optimization_frequency', 
     'singlepoint_dir' : 'singlepoint'
 })
