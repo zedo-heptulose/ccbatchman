@@ -349,7 +349,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Gage Bayliss - baylissgage@gmail.com
+Gage Bayliss - gdb20@fsu.edu
 
 Project Link: [https://github.com/zedo-heptulose/CC-batch-manager](https://github.com/zedo-heptulose/CC-batch-manager)
 
