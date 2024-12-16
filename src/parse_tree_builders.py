@@ -70,6 +70,7 @@ class BSTreeBuilder:
         self.opt_freq_dir = ""
         self.singlet_sp_dir = ""
         self.triplet_sp_dir = ""
+        self.debug = False
         if params:
             self.from_dict(params)
         
@@ -83,6 +84,7 @@ class BSTreeBuilder:
             'opt_freq_dir' : self.opt_freq_dir,
             'singlet_sp_dir' : self.singlet_sp_dir,
             'triplet_sp_dir' : self.triplet_sp_dir,
+            'debug' : self.debug,
         }
         return new_dict
 
@@ -96,6 +98,7 @@ class BSTreeBuilder:
         self.opt_freq_dir = info['opt_freq_dir']
         self.singlet_sp_dir = info['singlet_sp_dir']
         self.triplet_sp_dir = info['triplet_sp_dir']
+        self.debug = info['debug']
         return self
 
     def change_params(self,new_params):
@@ -142,6 +145,7 @@ class BSTreeBuilder:
         ]
         
         pt = parse_tree.ParseTree()
+        pt.debug = self.debug
         pt.root_node = root
         pt.root_dir = self.root_dir
         return pt

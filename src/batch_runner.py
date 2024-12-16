@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import time
+import shutil
 import re
 #jobs should be a list or dict of job_harness objects
 import editor
@@ -26,6 +27,10 @@ class BatchRunner:
         self.restart = kwargs.get('restart',True) #This option is for using an old ledger file
         self.max_jobs_running = kwargs.get('num_jobs',1)
         self.debug = kwargs.get('debug',False)
+
+        self.running_ledger_filename = kwargs.get('running_ledger_filename','__running__.csv')
+        self.failed_ledger_filename = kwargs.get('failed_ledger_filename','__failed__.csv')
+        self.succeeded_ledger_filename = kwargs.get('succeeded_ledger_filename','__succeeded__.csv')
 
     #tested
     def to_dict(self): #DOES NOT INCLUDE LEDGER, BUT ONLY LEDGER FILENAME
@@ -61,7 +66,23 @@ class BatchRunner:
         if self.debug: print(full_path_basename)
         with open(f"{full_path_basename}.json",'r') as jsonfile:
             self.from_dict(json.load(jsonfile))
-    
+
+
+    def dependencies_broken(self,row):
+        failed_jobs = self.ledger['job_status'] == 'failed'
+        broken_dependencies = self.ledger['job_status'] == 'broken_dependency'
+        failed_jobs = self.ledger[failed_jobs | broken_dependencies]
+        if pd.isna(row['coords_from']):
+            return False
+        dependencies = row['coords_from']
+        dependency_abs_path = os.path.abspath(os.path.join(row['job_directory'],row['coords_from']))
+        if len(failed_jobs) != 0:
+            failed_abs_paths = [os.path.abspath(fail_row['job_directory']) for i, fail_row in failed_jobs.iterrows()]
+            if (dependency_abs_path in failed_abs_paths):
+                return True
+        return False
+
+
     #TODO: generalize to all dependencies
     def dependencies_satisfied(self,row):
         completed_jobs = self.completed_jobs()
@@ -82,7 +103,7 @@ class BatchRunner:
         if self.debug: print(f"dependencies not satisfied")
         return False
 
-
+    
     def completed_jobs(self):
         return self.ledger[self.ledger['job_status']=='succeeded']
 
@@ -93,6 +114,13 @@ class BatchRunner:
                         ),axis=1
                 )
     
+    def broken_dependency_mask(self):
+        return self.ledger.apply(
+                    lambda row: self.dependencies_broken(
+                        row,
+                        ),axis=1
+                )
+
     def run_jobs_update_ledger(self,**kwargs):
         debug = kwargs.get('debug',False)
         for index in range(len(self.jobs) - 1, -1, -1):
@@ -105,11 +133,47 @@ class BatchRunner:
            
             if self.debug: print(f"job status: {job.status}")
             self.ledger.loc[self.ledger['job_id'] == job.job_id, 'job_status'] = job.status
-            if job.status == 'failed' or job.status == 'succeeded':
+            if job.status == 'failed':
+                self.flag_broken_dependencies()
+                self.jobs.pop(index)
+                out_path = os.path.join(job.directory,job.job_name) + job.output_extension
+                if not job.job_id:
+                    job.get_id()
+                slurm_path = os.path.join(job.directory,f"slurm-{job.job_id}.out")
+                
+                prefix = os.path.commonprefix([self.run_root_directory,job.directory])
+                job_unique_path = job.directory[len(prefix):]
+                job_fail_write = re.sub('/','__',job_unique_path)
+                fail_path = os.path.join(prefix,'fail_output',job_fail_write)
+                if not os.path.exists(fail_path):
+                    os.makedirs(fail_path)
+                shutil.copy(out_path,os.path.join(fail_path,job.job_name + job.output_extension))
+                print(slurm_path)
+                if os.path.exists(slurm_path):
+                    shutil.copy(slurm_path,os.path.join(fail_path,f"slurm-{job.job_id}.out"))
+                print() 
+                print("////////////////////////////////////////////////////////")
+                print('JOB FAILED')
+                print('path to job:')
+                print(job.directory)
+                print('writing job and slurm outputs to fail directory:')
+                print(fail_path)
+                print("////////////////////////////////////////////////////////")
+                print()
+
+            if job.status == 'succeeded':
+                print() 
+                print("////////////////////////////////////////////////////////")
+                print('JOB SUCCEEDED')
+                print('path to job:')
+                print(job.directory)
+                print("////////////////////////////////////////////////////////")
+                print()
                 self.jobs.pop(index)
 
+   
 
-    
+
     def transfer_coords(self,ledger_row,job):
         xyz_directory = ledger_row['coords_from']
         xyz_filename = ledger_row['xyz_filename']
@@ -160,7 +224,9 @@ class BatchRunner:
         else:
             raise ValueError('Invalid Program Specified')
         
-    
+    def flag_broken_dependencies(self,**kwargs):
+        self.ledger.loc[self.broken_dependency_mask(),'job_status'] = 'broken_dependency'
+
     def queue_new_jobs(self,**kwargs):
         running_mask = (self.ledger['job_status'] == 'running') |\
                        (self.ledger['job_status'] == 'pending') 
@@ -192,9 +258,11 @@ class BatchRunner:
                     job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.directory) if re.search(r'slurm-\d+.out',fn)])
                 
                 elif job.status == 'failed':
+                    print("////////////////////////////////////////////////////////")
                     print("WARNING: JOB ALREADY FAILED")
                     print(f"job name: {job.job_name}")
                     print(f"job directory: {job.directory}")
+                    print("////////////////////////////////////////////////////////")
 
                 elif job.status =='not_started':
                     job.submit_job()
@@ -372,7 +440,7 @@ class BatchRunner:
             if self.debug: print('writing ledger')
             self.write_ledger()
             if self.debug: print('sleeping')
-            time.sleep(1)
+            time.sleep(0.1)
         print("\n\nEXITING\n\n")
 
 if __name__ == "__main__":

@@ -9,6 +9,8 @@ import subprocess
 import json
 import time
 
+import glob
+
 rule_relpath = '../config/file_parser_config/'
 src_dir = os.path.dirname(os.path.abspath(__file__))
 RULEPATH = os.path.normpath(os.path.join(src_dir,rule_relpath))
@@ -38,7 +40,7 @@ class JobHarness:
         self.ruleset = ORCARULES #used to choose rules for parsing
         self.restart = True #when this flag is enabled, we will look for old temp files and use them
         self.mode = 'slurm' #slurm or direct
-
+        self.tmp_extension= '.tmp'
     def to_dict(self):
         return {
             'directory' : self.directory,
@@ -69,7 +71,19 @@ class JobHarness:
             data = json.load(json_data)
         self.from_dict(data)
 
-    
+    #this will make things more robust. On startup, we check for this...
+    def get_id(self):
+        files = os.listdir(self.directory)
+        pattern = '(?:slurm-)(\d+)(?:\.out)'
+        id_list = [file for file in files if re.match(pattern,file)]
+        id_list = [int(re.match(pattern,file).group(1)) for file in id_list]
+        max_id = -1
+        if len(id_list) != 0:
+            max_id = max(id_list)
+        if max_id != -1:
+            self.job_id = max_id
+
+
     #all that's required is a simple update_status here...
     def update_status(self,**kwargs):
         '''
@@ -111,15 +125,15 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                 if debug: print(f"Bad capture of squeue response: Attempt {attempt + 1}")
     
         if in_progress:
-            if not self.silent: print(f'slurm status:{slurm_status}')   
+            if self.debug: print(f'slurm status:{slurm_status}')   
             if slurm_status == 'PD':
                 self.status = 'pending'
-                if not self.silent: print("returning pending")
+                if self.debug: print("returning pending")
                 return
     
             elif slurm_status == 'R':
-                if not self.silent: self.status = 'running'
-                if not self.silent: print("returning with running")
+                if self.debug: self.status = 'running'
+                if self.debug: print("returning with running")
                 return
 
             else:
@@ -127,8 +141,8 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         
         if not in_progress: #this isn't an if-else because in_progress can be changed in the last conditional
             #TODO: FIX THIS
-            if not self.silent: print(f'updating status with ruleset found at: {self.ruleset}')
-            if not self.silent: print(f"slurm output before static success check: {output}")
+            if self.debug: print(f'updating status with ruleset found at: {self.ruleset}')
+            if self.debug: print(f"slurm output before static success check: {output}")
             self.check_success_static()
             return 
             
@@ -137,8 +151,8 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         used for jobs which are not running; they either succeeded or failed
         this is a separate function so that it can be called on its own, even though the logic is simple
         '''
-        print(f"using ruleset at path: {self.ruleset}")
-        print(f"absolute ruleset path: {os.path.abspath(self.ruleset)}")
+        if self.debug : print(f"using ruleset at path: {self.ruleset}")
+        if self.debug : print(f"absolute ruleset path: {os.path.abspath(self.ruleset)}")
         temp_status = file_parser.extract_data(
                           f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
                           self.ruleset #this fails?
@@ -219,7 +233,11 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             json.dump(data, json_file,indent="")
 
     def OneIter(self,**kwargs):
-        if self.status == 'failed' or self.status == 'completed':
+        if self.status == 'failed':
+            self.parse_output()
+            self.prune_temp_files()
+            return self.status
+        if self.status == 'completed':
             self.parse_output() #maybe have a flag for whether to do this?
             #right now, I need this to happen
             return self.status
@@ -256,10 +274,29 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         self.parse_output()
         
         if self.status == 'failed':
+            self.prune_temp_files()
             return 1
         elif self.status == 'succeeded':
             self.final_parse()
             return 0
+
+    def prune_temp_files(self):
+        print()
+        print("////////////////////////////////////////////////////////") 
+        print('removing .tmp files')
+        files_to_remove = glob.glob(os.path.join(self.directory, '*{self.tmp_extension}*'))
+
+        for file in files_to_remove:
+            print(file)
+            try:
+                os.remove(file)
+                print(f"Removed: {file}")
+            except OSError as e:
+                print(f"Error removing {file}: {e}")
+
+        print("////////////////////////////////////////////////////////")
+        print()
+
 
 class ORCAHarness(JobHarness):
     def __init__(self):
@@ -268,6 +305,16 @@ class ORCAHarness(JobHarness):
         self.output_extension = '.out'
         self.input_extension = '.inp'
         self.program = 'orca'
+
+    def interpret_fp_out(self,file_parser_output):
+        self.status = 'failed'
+        if file_parser_output['is_opt']:
+            if file_parser_output['success'] and file_parser_output['opt_success']:
+                self.status = 'succeeded'
+            if file_parser_output['imaginary_frequencies']:
+                self.status = 'failed'
+        else:
+            self.status = 'succeeded' if file_parser_output['success'] else 'failed'
 
     def final_parse(self):
         opp = postprocessing.OrcaPostProcessor(self.directory,self.job_name)

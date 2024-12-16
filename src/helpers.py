@@ -29,7 +29,8 @@ def merge_dicts(_d1, _d2):
     return merged
 
 
-
+#we have this very silly looking function in case we ever want to change
+#the format of config files
 def load_config_from_file(config_file):
     with open(config_file,'r') as f:
         return json.load(f)

@@ -14,6 +14,7 @@ class ParseTree:
         self.root_node = None
         self.root_dir = None
         self.display_function = None
+        self.debug = False
 
     @property
     def data(self):
@@ -35,7 +36,9 @@ class ParseTree:
             if self.display_function is not None and os.path.exists(xyz_path):
                self.display_function(xyz_path)
         current_node.directory = dirpath #now we needn't specify directories within nodes when making them
+        if self.debug : print(current_node.directory)
         current_node.parse_data()
+        if self.debug : print(current_node.data)
         current_node.write_json()
 
 
@@ -64,12 +67,22 @@ class ParseLeaf(ParseNode):
     def parse_data(self):
         if self.debug: print(f"in directory: {self.directory}")
         if self.debug: print(f"opening file: {self.json_path}")
-        if os.path.exists(self.json_path):
+        ruleset = None
+        #TODO: fix this bad code
+        if os.path.exists(run_info_path := os.path.join(self.directory,'run_info.json')):
+            with open(run_info_path,'r') as json_file:
+                data = json.load(json_file)
+            ruleset = data['ruleset']
+            ruleset = os.path.basename(ruleset)
+            config_dir = os.path.join(os.path.dirname(__file__),'../config/file_parser_config',ruleset)
+            ruleset = os.path.normpath(config_dir)
+            if self.debug : print(f'found ruleset in run_info.json: {ruleset}')
+        if os.path.exists(self.json_path) and ruleset:
             with open(self.json_path, 'r') as json_file:
                 #TODO: remove or formalize this
                 output_file = self.json_path[:-5] + '.out'
                 if self.debug: print(f'parsing output at {output_file}')
-                data = file_parser.extract_data(output_file,'/gpfs/home/gdb20/code/batch-manager/config/file_parser_config/orca_rules.dat')
+                data = file_parser.extract_data(output_file,ruleset)
                 self.data = data
                 # self.data = json.load(json_file)
                 
@@ -125,7 +138,7 @@ class CompoundNode(ParseNode):
         #actually this one is pretty easy
         thermal_energies = [
             ('G_au','G_minus_E_el_au'),
-            ('H_au','H_minus_E_el_au'),
+            # ('H_au','H_minus_E_el_au'),
             #('E_au','E_minus_E_el_au'),
         ]
         data = sp_data
@@ -181,7 +194,7 @@ class ThermoNode(ParseNode):
         #check these literals if we run into bugs
         #TODO: give user more control over these energy types!
         energy_types = ['G_au',
-                        'H_au',
+                        # 'H_au',
                         #'E_au',
                         'E_el_au']
         products_label = 'product'
@@ -201,7 +214,7 @@ class ThermoNode(ParseNode):
                         reaction_coefficient * energy
                 else:    
                     reaction_data[f"{delta_label}_{energy_type}"] = False #this will raise an error if we add a number
-                    break #we cannot even consider this energy_type 
+                    break
             
         for energy_type in energy_types:
             reaction_data[f"{delta_label}_{energy_type}"] =\
@@ -218,25 +231,5 @@ class ThermoNode(ParseNode):
                     print(f'could not percolate key {p_key}')
             
         self.data = postprocessing.delta_unit_conversions(self.data)
-        #when debugging, the first step is to gain information
-        #when gaining information, the first step is to proofread
         return self
-
-
-
-
-
-#WHAT NEEDS TO EXIST FOR PARSETREE TO WORK?
-#GET POSTPROC AND STUFF AT PARSELEAF WORKING
-#GET COMPOUND NODES WORKING 
-#GET THERMO NODES WORKING FOR BROKEN SYMMETRY
-#MAKE A BUILDER THAT MAKES THIS ALL LESS TEDIOUS
-#MAKE A GENERATOR OF TREES TO USE
-#ANY USEFUL FUNCTIONS YOU MAKE, PUT IN THE PARSETREE CLASS
-#GET A CSV AS OUTPUT
-
-#then...
-#MAKE PLOTS OF CSV DATA
-
-#NEED POSTPROCESSING FOR XTB OUTPUT AS WELL
 

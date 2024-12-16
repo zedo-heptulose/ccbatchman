@@ -9,7 +9,10 @@ __after__ ; DFT DISPERSION CORRECTION
 __before__ ; FINAL SINGLE POINT ENERGY
 G_minus_E_el_au ; G-E\s*\(el\) ; last ; float
 success ; ORCA TERMINATED NORMALLY ; found
-opt_done ; \*\*\* OPTIMIZATION RUN DONE \*\*\* ; found
+__after__ ; INPUT FILE
+  is_opt ; (?i)(!|!.*\s+)opt\s+ ; found
+__before__ ; \*\*\*\*END OF INPUT\*\*\*\*
+opt_success ; \*\*\* OPTIMIZATION RUN DONE \*\*\* ; found
 scf_fail ; SCF NOT CONVERGED ; found
 __after__ ; VIBRATIONAL\s+FREQUENCIES
     imaginary_frequencies; -\s*\d+\.\d+\s*cm\*\*-1 ; found

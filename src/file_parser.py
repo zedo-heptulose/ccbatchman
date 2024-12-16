@@ -248,7 +248,7 @@ def read_rulesfile(rule_filename):
 
         else:
             if len(rule_fields) < 3:
-                ##print(rule_fields)
+                print(rule_fields)
                 raise ValueError("^ rule formatted incorrectly\n")
             #if full set of instructions, use all parameters
             search_flag = rule_fields[2]
