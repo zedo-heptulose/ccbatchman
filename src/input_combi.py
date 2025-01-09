@@ -31,10 +31,10 @@ def delete_old_tmp_files(root_directory):
         for file in files:
             path = os.path.join(job_dir,file)
             basename = os.path.basename(file)
-            if re.search('\.tmp',basename):
+            if re.search(r'\.tmp',basename):
                 # print(path) #dry run with print before we remove
                 os.remove(path)
-            if re.search('\.rwf',basename):
+            if re.search(r'\.rwf',basename):
                 os.remove(path)
                 
                 
@@ -62,7 +62,7 @@ def write_own_script(run_settings,root_dir):
     #TODO: clean this up some
     job = br_builder.build()
     job.sh.directory = job.directory
-    print(f'writing file to {job.sh.directory}')
+    #print(f'writing file to {job.sh.directory}')
     job.sh.write_file()
 
 def xyz_files_from_directory(directory):
@@ -109,12 +109,12 @@ def iterate_inputs(list_of_dict_of_dicts,flag_array):
             config_dict = helpers.merge_dicts(config_dict,list_of_dict_of_dicts[index][key])
         name = '_'.join([name_frag for name_frag in name_list if name_frag])
         config_dict['job_basename'] = name
-        print(config_dict.get('!xyz_file','IF I HAD ONE'))
+        #print(config_dict.get('!xyz_file','IF I HAD ONE'))
         if config_dict.get('!xyz_file',None):#should avoid a lot of issues this way
             config_dict['xyz_file'] = config_dict['!xyz_file']
             #can't think of any example when we wouldn't want to do this
         if not config_dict.get('write_directory',None):
-            print("No write directory provided")
+            #print("No write directory provided")
             config_dict['write_directory'] = ''#have to see how this is handled
         all_configs.append(config_dict)
     return all_configs
@@ -161,13 +161,13 @@ def write_input_array(_configs,root_directory,**kwargs):
                 filtered_status = ledger.loc[identify_mask,'job_status']                    
                 if not filtered_status.empty:
                     if ledger.loc[identify_mask,'job_status'].iloc[0] in ['succeeded','running','pending']:
-                        print("JOB ALREADY SUCCEEDED or RUNNING or PENDING")
+                        #print("JOB ALREADY SUCCEEDED or RUNNING or PENDING")
                         job_succeeded = True
                     else:
-                        print("job failed")
+                        print("Overwriting job")
                         job_succeeded = False
                 else:
-                    print("job not found")
+                   # print("job not found")
                     job_succeeded = False
                 
                     

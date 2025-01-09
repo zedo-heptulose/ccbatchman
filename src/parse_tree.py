@@ -25,9 +25,10 @@ class ParseTree:
             json.dump(self.data,json_file,indent=2)
     
     def depth_first_parse(self,node=None,dirpath=None):
+        if self.debug: print(f"root dir: {self.root_dir}")
         current_node = node if node else self.root_node
         dirpath = dirpath if dirpath else self.root_dir
-        
+        if self.debug: print(f"DIRPATH: {dirpath}")
         #this should do nothing if there is no node
         for key, node in current_node.children.items():
             new_dir = os.path.join(dirpath,node.basename) #an assumption is being made here...
@@ -36,9 +37,15 @@ class ParseTree:
             if self.display_function is not None and os.path.exists(xyz_path):
                self.display_function(xyz_path)
         current_node.directory = dirpath #now we needn't specify directories within nodes when making them
-        if self.debug : print(current_node.directory)
+
+        ########### HOTFIX 12/30/24
+        current_node.basename = os.path.basename(current_node.basename) 
+        ########### HOTFIX 12/30/24
+        
+        if self.debug : print(f"DIRECTORY: {current_node.directory}")
+        if self.debug : print(f"BASENAME: {current_node.basename}")
         current_node.parse_data()
-        if self.debug : print(current_node.data)
+        if self.debug : print(f"DATA: {current_node.data}")
         current_node.write_json()
 
 
@@ -156,10 +163,16 @@ class ThermoNode(ParseNode):
     #this type of node is used to calculate thermochemistry
     #we keep a dict of tuples, (reactant_or_product,coefficient)
     #usually this is the topmost node
-    def __init__(self,basename=""):
+    def __init__(self,basename="",**kwargs):
         ParseNode.__init__(self,basename)
         self.coefficients = {} #name : tuple (reactant or product, coeff)
         self.percolate_keys = {} #name : list keys to percolate
+        self.energy_types = kwargs.get('energy_types',[
+            'G_au',
+            # 'H_au',
+            #'E_au',
+            'E_el_au'
+        ])
         #TODO: pick a better name for this?
         #set by user at generation time
 
@@ -193,15 +206,11 @@ class ThermoNode(ParseNode):
     def parse_data(self):
         #check these literals if we run into bugs
         #TODO: give user more control over these energy types!
-        energy_types = ['G_au',
-                        # 'H_au',
-                        #'E_au',
-                        'E_el_au']
         products_label = 'product'
         reactants_label = 'reactant'
         delta_label = 'Delta'
         reaction_data = {}
-        for energy_type in energy_types:    
+        for energy_type in self.energy_types:    
             for key in self.coefficients:
             #this loop is inside, we want to be able to break from this
             #edge case if energy is zero, but that would never happen...
@@ -216,7 +225,7 @@ class ThermoNode(ParseNode):
                     reaction_data[f"{delta_label}_{energy_type}"] = False #this will raise an error if we add a number
                     break
             
-        for energy_type in energy_types:
+        for energy_type in self.energy_types:
             reaction_data[f"{delta_label}_{energy_type}"] =\
                 reaction_data[f"{products_label}_{energy_type}"] -\
                 reaction_data[f"{reactants_label}_{energy_type}"]

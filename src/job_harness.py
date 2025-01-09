@@ -94,7 +94,9 @@ class JobHarness:
         debug = kwargs.get('debug',False)
         in_progress = True
         slurm_status = "N/A"
-    
+        
+        slurm_read = False
+
         for attempt in range(5):    #needs
             try:
                 processdata = subprocess.run(
@@ -120,10 +122,14 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
                     slurm_status = re.search(
                                         r'(?:\S+\s+){4}(\S+)',
                                         captureline).group(1)  
+                slurm_read = True
                 break #if we get to the end, don't bother trying again
             except:
                 if debug: print(f"Bad capture of squeue response: Attempt {attempt + 1}")
-    
+        
+        if not slurm_read:
+            raise RuntimeError("Could not capture job status through squeue")
+
         if in_progress:
             if self.debug: print(f'slurm status:{slurm_status}')   
             if slurm_status == 'PD':
@@ -138,11 +144,14 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
 
             else:
                 in_progress = False
-        
+            
         if not in_progress: #this isn't an if-else because in_progress can be changed in the last conditional
             #TODO: FIX THIS
             if self.debug: print(f'updating status with ruleset found at: {self.ruleset}')
             if self.debug: print(f"slurm output before static success check: {output}")
+            output_filename = f"{os.path.join(self.directory,self.job_name)}{self.output_extension}"
+            if not os.path.exists(output_filename):
+                return 'not_started' #DANGEROUS, EXPECT NEGATIVE CONSEQUENCES
             self.check_success_static()
             return 
             
@@ -153,23 +162,18 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         '''
         if self.debug : print(f"using ruleset at path: {self.ruleset}")
         if self.debug : print(f"absolute ruleset path: {os.path.abspath(self.ruleset)}")
+        output_filename = f"{os.path.join(self.directory,self.job_name)}{self.output_extension}"
+
         temp_status = file_parser.extract_data(
-                          f"{os.path.join(self.directory,self.job_name)}{self.output_extension}",
+                          output_filename,
                           self.ruleset #this fails?
                           )
         self.interpret_fp_out(temp_status)
     
     def interpret_fp_out(self, file_parser_output):
-        #this function exists because of edge case where Gaussian runner needs to override this
-        #Gaussian OPT+FREQ jobs output 'normal temination'... twice
-        output_exists = False
-        for file in os.listdir(self.directory):
-            if file.endswith(self.output_extension):
-                output_exists = True
-        if output_exists:
-            self.status = ('succeeded' if file_parser_output['success'] else 'failed')
-        else:
-            self.status = 'not_started'
+        #this function exists to be overwritten
+        self.status = ('succeeded' if file_parser_output['success'] else 'failed')
+            
         
     def submit_job(self,**kwargs):
         debug = kwargs.get('debug',False)

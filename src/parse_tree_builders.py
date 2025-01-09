@@ -1,4 +1,67 @@
 import parse_tree
+import os
+
+class SimpleETreeBuilder:
+    def __init__(self,params=None):
+        self.root_basename = ""
+        self.root_dir = ""
+        self.reactants = {}
+        self.products = {}
+        self.singlepoint_dir = ""
+        self.debug = False
+        self.change_params(params)
+
+    def to_dict(self):
+        new_dict = {
+            'root_basename' : self.root_basename,
+            'root_dir' : self.root_dir,
+            'reactants' : self.reactants,
+            'products' : self.products,
+            'singlepoint_dir' : self.singlepoint_dir,
+            'debug' : self.debug
+        }
+        return new_dict
+
+    def from_dict(self,info):
+        self.root_dir = info['root_basename']
+        self.root_dir = info['root_dir']
+        self.reactants = info['reactants']
+        self.products = info['products']
+        self.singlepoint_dir = info['singlepoint_dir']
+        self.debug = info['debug']
+        
+        return self
+        
+    def change_params(self,new_params):
+        self_dict = self.to_dict()
+        self_dict.update(new_params)
+        self.from_dict(self_dict)
+        return self
+
+    def build(self):
+        root = parse_tree.ThermoNode(self.root_basename)
+        
+        reactant_nodes_and_coeffs = [(os.path.join(reactant,self.singlepoint_dir),coefficient) for reactant, coefficient in self.reactants.items()]
+        root.set_reactants(reactant_nodes_and_coeffs)
+        
+        product_nodes_and_coeffs = [(os.path.join(product,self.singlepoint_dir),coefficient) for product, coefficient in self.products.items()]
+        root.set_products(product_nodes_and_coeffs)
+        root.energy_types = ['E_el_au']
+        
+        pt = parse_tree.ParseTree()
+        pt.root_node = root
+        pt.root_dir = self.root_dir
+
+
+        pt.debug = self.debug
+        
+        return pt
+
+
+
+
+
+
 
 class SimpleThermoTreeBuilder:
     '''
@@ -7,10 +70,11 @@ class SimpleThermoTreeBuilder:
     def __init__(self,params=None):
         self.root_basename = ""
         self.root_dir = ""
-        self.reactants = []
-        self.products = []
+        self.reactants = {}
+        self.products = {}
         self.opt_freq_dir = ""
         self.singlepoint_dir = ""
+        self.debug = False
         self.change_params(params)
     
     def to_dict(self):
@@ -21,6 +85,7 @@ class SimpleThermoTreeBuilder:
             'products' : self.products,
             'opt_freq_dir' : self.opt_freq_dir,
             'singlepoint_dir' : self.singlepoint_dir,
+            'debug' : self.debug,
         }
         return new_dict
 
@@ -31,6 +96,7 @@ class SimpleThermoTreeBuilder:
         self.products = info['products']
         self.opt_freq_dir = info['opt_freq_dir']
         self.singlepoint_dir = info['singlepoint_dir']
+        self.debug = info['debug']
         return self
 
 #FOR ONLY SINGLEPOINTS:
@@ -47,6 +113,7 @@ class SimpleThermoTreeBuilder:
         pt = parse_tree.ParseTree()
         pt.root_node = root
         pt.root_dir = self.root_dir
+        pt.debug = self.debug
         return pt
 
                     

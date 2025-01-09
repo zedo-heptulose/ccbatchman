@@ -85,24 +85,26 @@ class BatchRunner:
 
     #TODO: generalize to all dependencies
     def dependencies_satisfied(self,row):
-        completed_jobs = self.completed_jobs()
         if pd.isna(row['coords_from']):
-            if self.debug: print('dependency is nan, satisfied')
             return True
         dependencies = row['coords_from']
         #TODO: fix this, if we ever make dependencies a list
-        if self.debug and type(dependencies) is str: print(
+        if self.debug and type(dependencies) is str: 
+            print(
                 f"dependencies: {os.path.abspath(os.path.join(row['job_directory'],dependencies))}"
                 )
         dependency_abs_path = os.path.abspath(os.path.join(row['job_directory'],row['coords_from']))
-        if len(completed_jobs) != 0:
-            completed_abs_paths = [os.path.abspath(comp_row['job_directory']) for i, comp_row in completed_jobs.iterrows()]
-            if (dependency_abs_path in completed_abs_paths):
-                if self.debug: print(f"dependencies satisfied")
-                return True
-        if self.debug: print(f"dependencies not satisfied")
+        xyz_path = os.path.join(dependency_abs_path,row['xyz_filename'])
+        if not os.path.exists(xyz_path):
+            return False
+        json_path = os.path.join(dependency_abs_path,'run_info.json')
+        if not os.path.exists(json_path):
+            return False
+        with open (json_path,'r') as run_info_f:
+            run_info = json.load(run_info_f)
+        if run_info['status'] == 'succeeded':
+            return True
         return False
-
     
     def completed_jobs(self):
         return self.ledger[self.ledger['job_status']=='succeeded']
@@ -354,17 +356,17 @@ class BatchRunner:
         current_job_mask = (self.ledger['job_id'] != -1) & (self.ledger['job_status'] != 'succeeded') & (self.ledger['job_status'] != 'failed')
         
         for index, row in self.ledger[current_job_mask].iterrows():
-            new_job = self.create_job_harness(row['program'])
-            
+            if self.debug: print(f"restarting job: {row['job_directory']} {row['job_basename']}")
+            if self.debug: print(f"job id: {row['job_id']}")
+            new_job = self.create_job_harness(row['program']) 
             new_job.job_id = row['job_id']
             new_job.status = row['job_status'] #would be running for the offending jobs
             new_job.directory = row['job_directory'] 
             new_job.job_name = row['job_basename'] #sure
             new_job.restart = True  #why does this fail
-            #for update_status: modify it to check if any outputs exist.
-            #we will allow the static part to output not_started
-            #if no .out files exist.
-            new_job.update_status()
+            #so we need to check. if there's a job ID, but no output and it's not active,
+            #status is not_started.
+            new_job.update_status() #right here is where we fail. 
             new_job.write_json()  
             self.jobs.append(new_job) 
             if self.debug: print(f"JOB ADDED TO QUEUE. {new_job.job_name}")
@@ -391,10 +393,11 @@ class BatchRunner:
              #   print("NO LEDGER FOUND TO RESTART FROM")
         return self
 
+
     def parse_pipe(self,pipe_command):
         if self.debug: print(pipe_command)
-        if pipe_command is np.nan:
-            return np.nan
+        if not type(pipe_command) is str:
+            return np.nan, np.nan
         match = re.match('(?:\s*)(\S+)(?:\s*\{\s*)(\S+)(?:\s*,\s*)(\S*)(?:\s*\})',pipe_command)
         args = list(match.groups())
         if self.debug: print(args)
