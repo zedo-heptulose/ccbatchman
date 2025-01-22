@@ -163,7 +163,10 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         if self.debug : print(f"using ruleset at path: {self.ruleset}")
         if self.debug : print(f"absolute ruleset path: {os.path.abspath(self.ruleset)}")
         output_filename = f"{os.path.join(self.directory,self.job_name)}{self.output_extension}"
-
+        if not os.path.exists(output_filename):
+            print(f"FILE DOES NOT EXIST: {output_filename}")
+            self.status = 'not_started' #CHECK ERROR
+            return
         temp_status = file_parser.extract_data(
                           output_filename,
                           self.ruleset #this fails?

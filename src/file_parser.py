@@ -1,4 +1,5 @@
 import re
+import numpy as np
 import itertools as itt
 import logging as log
 
@@ -18,10 +19,11 @@ def get_match_at_index(matches, index):
             return None  # Return None if index is out of range
     return match
 
+
 def read_var_from_line(line,var_type,var_flag= None,var_regex=None):
         '''
         function that handles variable as proper type
-         '''
+        '''
         log.debug("in read_var_from_line:")
         log.debug(line)
         log.debug(var_regex)
@@ -43,6 +45,7 @@ def read_var_from_line(line,var_type,var_flag= None,var_regex=None):
             try:
                 match = next(matches)
             except: 
+                match = None
                 print("WARNING: var not found on line.")
                 print(line)
                 print(var_type)
@@ -51,14 +54,27 @@ def read_var_from_line(line,var_type,var_flag= None,var_regex=None):
                 
         elif var_flag == 'last':
             log.debug('flag last reached')
+            if len(matches) == 0:
+                match = None
+                print("WARNING: var not found on line.")
+                print(line)
+                print(var_type)
+                print(var_flag)
+                print(var_regex)
             for matcher in matches:
                 match = matcher
+
         elif re.search(int_pattern,var_flag):
             index = int(re.match(int_pattern,var_flag).group(0))
             match = get_match_at_index(matches, index)
 
-
-        variable = match.group(1)
+        else:
+            raise ValueError("bad var_flag: {var_flag}")
+    
+        if not match:
+            variable = np.nan
+        else:
+            variable = match.group(1)
 
         if var_type == "float":
                 return float(variable)

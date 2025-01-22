@@ -92,7 +92,6 @@ class ParseLeaf(ParseNode):
                 data = file_parser.extract_data(output_file,ruleset)
                 self.data = data
                 # self.data = json.load(json_file)
-                
                 # print("data before postprocessing")
                 # print(self.data)
                 pp = postprocessing.OrcaPostProcessor(debug=self.debug)
@@ -110,8 +109,8 @@ class ParseLeaf(ParseNode):
                 except:
                     if self.debug: print('file not compatible w/ orca pp routine')
         return self
-
-                
+                  
+                  
 class CompoundNode(ParseNode):
     #use concrete case for this:
     #an optimization/frequency calculation,

@@ -250,11 +250,12 @@ class BatchRunner:
                 
                 self.transfer_coords(not_started_jobs.iloc[i],job)
                
-                try:
-                    job.check_success_static() #so this didn't work?
-                    job.write_json()
-                except:
-                    print("job.check_success_static() failed, check that output exists")
+                #try:
+                job.check_success_static() #so this didn't work?
+                job.write_json()
+                #except:
+                #    print(f"error for job: {job.directory} {job.job_name}")
+                #    print("job.check_success_static() failed, check that output exists")
 
                 if job.status == 'succeeded':
                     job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.directory) if re.search(r'slurm-\d+.out',fn)])

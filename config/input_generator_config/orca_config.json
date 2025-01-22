@@ -2,7 +2,7 @@
   "program": "ORCA",
   "version": "6.0.0",
   "path_to_program": "/gpfs/research/software/orca/orca_6_0_0_shared_openmpi416/orca",
-  "pre_submit_lines": ["module load gnu/8.5.0 openmpi/4.1.6 orca/6.0.0"],
+  "pre_submit_lines": ["module load gnu/8.5.0 openmpi/4.1.6 orca/6.0.1"],
   "post_submit_lines": null,
   "num_cores": 8,
   "mem_per_cpu_GB": 4,
