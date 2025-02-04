@@ -1,11 +1,14 @@
 import os
 import re
 import json
+import numpy as np
 import pandas as pd
 import copy
 import postprocessing
 import file_parser
 
+ORCARULES = '../config/file_parser_config/orca_rules.dat'
+GAUSSIANRULES = "../config/file_parser_config/gaussian_rules.dat"
 
 class ParseTree:
     #FUNCTIONS THIS NEEDS
@@ -87,26 +90,34 @@ class ParseLeaf(ParseNode):
         if os.path.exists(self.json_path) and ruleset:
             with open(self.json_path, 'r') as json_file:
                 #TODO: remove or formalize this
-                output_file = self.json_path[:-5] + '.out'
+                if os.path.basename(GAUSSIANRULES) == os.path.basename(ruleset):
+                    output_file = self.json_path[:-5] + '.log'
+                
+                else:
+                    output_file = self.json_path[:-5] + '.out'
                 if self.debug: print(f'parsing output at {output_file}')
-                data = file_parser.extract_data(output_file,ruleset)
+
+                if os.path.exists(output_file):
+                    data = file_parser.extract_data(output_file,ruleset)
+                else:
+                    with open(self.json_path,'r') as json_data:
+                        self.data = json.load(json_data)
+                    return self 
+                    #TODO: SHOULD FLAG AN ERROR HERE
+            
                 self.data = data
-                # self.data = json.load(json_file)
                 # print("data before postprocessing")
                 # print(self.data)
                 pp = postprocessing.OrcaPostProcessor(debug=self.debug)
                 pp.data = self.data
                 pp.thermal_energies()
                 self.data = pp.data
-                # print("data after postprocessing")
-                # print(self.data)
-                # if True:
-                try:
+                if ruleset == ORCARULES and os.path.exists(output_file):
                     pp.basename = self.basename
                     pp.dirname = self.directory
                     pp.orca_pp_routine()
                     self.data = pp.data #this was missing
-                except:
+                else:
                     if self.debug: print('file not compatible w/ orca pp routine')
         return self
                   
@@ -147,12 +158,23 @@ class CompoundNode(ParseNode):
             # ('H_au','H_minus_E_el_au'),
             #('E_au','E_minus_E_el_au'),
         ]
-        data = sp_data
+        data = sp_data.copy()
         for energy_type in thermal_energies:
             conversion_key = energy_type[0]
             thermal_key = energy_type[1]
-            data[thermal_key] = of_data[thermal_key]
-            data[conversion_key] = data['E_el_au'] + data[thermal_key]
+            data[thermal_key] = of_data.get(thermal_key,None)
+            electronic_energy = data.get('E_el_au',None) 
+            
+            if data[thermal_key] and electronic_energy:
+                data[conversion_key] = electronic_energy + data[thermal_key] 
+            elif not data[thermal_key]:
+                child_dir = self.children[self.opt_freq_key].directory
+                print(f"No key {thermal_key} for {child_dir}, setting energy to np.nan")
+            elif not electronic_energy:
+                data[conversion_key] = None
+                child_dir = self.children[self.singlepoint_key].directory
+                print(f"No key E_el_au for {child_dir}, setting energy to np.nan")
+            
         self.data = data
 
 
@@ -213,21 +235,26 @@ class ThermoNode(ParseNode):
             for key in self.coefficients:
             #this loop is inside, we want to be able to break from this
             #edge case if energy is zero, but that would never happen...
-                if energy := self.children[key].data.get(energy_type,None):
-                    product_or_reactant = self.coefficients[key][0]
-                    reaction_coefficient = self.coefficients[key][1]
-                    new_key = f"{product_or_reactant}_{energy_type}"
+                product_or_reactant = self.coefficients[key][0]
+                reaction_coefficient = self.coefficients[key][1]
+                new_key = f"{product_or_reactant}_{energy_type}"
+                energy = self.children[key].data.get(energy_type,None)
+                if energy and (reaction_data.get(new_key,0) is not None):
                     reaction_data[new_key] =\
                         reaction_data.get(new_key,0) +\
                         reaction_coefficient * energy
                 else:    
-                    reaction_data[f"{delta_label}_{energy_type}"] = False #this will raise an error if we add a number
-                    break
-            
+                    reaction_data[new_key] = None 
+                    
+
         for energy_type in self.energy_types:
-            reaction_data[f"{delta_label}_{energy_type}"] =\
-                reaction_data[f"{products_label}_{energy_type}"] -\
-                reaction_data[f"{reactants_label}_{energy_type}"]
+            product_energy = reaction_data[f"{products_label}_{energy_type}"]
+            reactant_energy = reaction_data[f"{reactants_label}_{energy_type}"]
+            if product_energy and reactant_energy:
+                reaction_data[f"{delta_label}_{energy_type}"] = product_energy - reactant_energy
+            else:
+                reaction_data[f"{delta_label}_{energy_type}"] = np.nan
+                print(f"{delta_label}_{energy_type} could not be calculated")
 
         self.data = reaction_data
 

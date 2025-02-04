@@ -382,10 +382,10 @@ class Job:
         if self.debug: print(f"xyz source file: {source_file}")
         dest_file = os.path.join(self.directory,self.xyz)
         if self.debug: print(f"xyz destination file: {dest_file}")
-        try:
+        if os.path.exists(source_file):
             shutil.copyfile(source_file, dest_file)
-        except Exception as e:
-            print(f"Error copying file: {e}")
+        elif self.debug: 
+            print(f'could not copy {source_file} to {dest_file}.')
         
         if self.debug: print('writing input, if applicable')
         if self.inp:

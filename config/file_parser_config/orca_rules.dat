@@ -13,6 +13,7 @@ __after__ ; INPUT FILE
   is_opt ; (?i)(!|!.*\s+)opt\s+ ; found
 __before__ ; \*\*\*\*END OF INPUT\*\*\*\*
 opt_success ; \*\*\* OPTIMIZATION RUN DONE \*\*\* ; found
+opt_fail ; The optimization did not converge but reached ; found
 scf_fail ; SCF NOT CONVERGED ; found
 __after__ ; VIBRATIONAL\s+FREQUENCIES
     imaginary_frequencies; -\s*\d+\.\d+\s*cm\*\*-1 ; found

@@ -16,6 +16,7 @@ import argparse
 class BatchRunner:
     #tested
     def __init__(self,**kwargs):
+        self.status_only= kwargs.get('status_only',False)
         self.strict = False
         self.batch_name = "test" #why do we have this?
         self.scratch_directory = "./" #this doesn't need to be changed
@@ -432,10 +433,37 @@ class BatchRunner:
     def save_fail_output(self,**kwargs):
         print("Job failed. Saving output in {self.run_root_directory}/failed_jobs.")
 
+    def check_status_all(self,**kwargs):
+        self.ledger.index = range(0,len(self.ledger))
+        print(f"Length of ledger: {len(self.ledger)}")
+        for i,row in self.ledger.iterrows():
+            directory = row['job_directory']
+            basename = row['job_basename']
+            program = row['program']
+            if row['job_status'] == 'broken_dependency':
+                continue
+            job = self.create_job_harness(program)
+            job.from_dict({
+                'directory': directory,
+                'job_name' : basename,
+                })
+            
+            job.update_status()
+            self.ledger.loc[i, 'job_id'] = job.job_id
+            self.ledger.loc[i, 'job_status'] = job.status
+            if job.status == 'failed':
+                self.flag_broken_dependencies()
+            del job
 
     def MainLoop(self,**kwargs):
         print('batch_runner\nInitializing run\n')
         self.initialize_run()
+        if self.status_only:
+            print("RUNNING STATUS CHECK:")
+            self.check_status_all()
+            print("STATUS CHECK DONE")
+            self.write_ledger()
+            return
         while not self.check_finished():
             if self.debug: print('updating ledger and running job loops')
             self.run_jobs_update_ledger()
@@ -446,20 +474,22 @@ class BatchRunner:
             if self.debug: print('sleeping')
             time.sleep(0.1)
         print("\n\nEXITING\n\n")
+        return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Driver program for sequentially submitting jobs through Slurm and managing pipes")
     parser.add_argument("input_file", type=str, help="Path to .csv batchfile with appropriate format")
     parser.add_argument("-v", "--verbose", action="store_true",help="Enable debug/verbose print statements")
     parser.add_argument("-j", "--num-jobs", type=int, help="Max no. jobs running in parallel")
+    parser.add_argument("-s","--status-only",action="store_true",help="Update status of all jobs but don't submit anything")
 
     args = parser.parse_args()
 
     input_file = args.input_file
     verbose = args.verbose
     num_jobs = args.num_jobs
-
-    batch_runner = BatchRunner(input_file=input_file,debug=verbose,num_jobs=num_jobs)
+    status_only = args.status_only
+    batch_runner = BatchRunner(input_file=input_file,debug=verbose,num_jobs=num_jobs,status_only=status_only)
     batch_runner.MainLoop()
 
 

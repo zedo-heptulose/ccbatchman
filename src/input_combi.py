@@ -5,6 +5,7 @@ import os
 import re
 import copy
 import pandas as pd
+import json
 
 
 #iterate inputs has some new rules
@@ -39,14 +40,14 @@ def delete_old_tmp_files(root_directory):
                 
                 
 
-def do_everything(root_directory,run_settings,*args):
+def do_everything(root_directory,run_settings,*args,**kwargs):
     """
     accepts any number of lists of dicts of settings to combine
     """
     for config_list in args:
         configs,flags = sort_flags(config_list)
         paths = iterate_inputs(configs,flags)
-        write_input_array(paths,root_directory)
+        write_input_array(paths,root_directory,**kwargs)
         print('editing batchfile')
         write_batchfile(paths,root_directory,'batchfile.csv')
     if run_settings is not None:
@@ -148,7 +149,7 @@ def write_input_array(_configs,root_directory,**kwargs):
         config['write_directory'] = os.path.join(root_directory,config['write_directory'],config['job_basename'])
         inp.change_params(config)
         job = inp.build()
-        
+        config_path = os.path.join(job.directory,'job_config.json')
         force_overwrite = config.get('!overwrite',False)
         
         if force_overwrite == 'not_succeeded' or force_overwrite is True: #really, failed and not started
@@ -179,6 +180,8 @@ def write_input_array(_configs,root_directory,**kwargs):
              
             if not job_succeeded:
                 job.create_directory(force=True)
+                with open (config_path,'w') as json_file:
+                    json.dump(config,json_file,indent=6)
 
         
         elif force_overwrite == 'all':
@@ -195,15 +198,22 @@ def write_input_array(_configs,root_directory,**kwargs):
                 ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
                 
             job.create_directory(force=True)
+            with open (config_path,'w') as json_file:
+                json.dump(config,json_file,indent=6)
              
         else:
             try:
                 job.create_directory(force=False)
+                with open (config_path,'w') as json_file:
+                    json.dump(config,json_file,indent=6)
             except:
-                #print(f"Job Directory NOT WRITTEN at {job.directory}")
-                #commenting this out; it was used for debugging but now just makes a lot of noise.
-                pass
+                pass #directory already exists, exception
             
+        if kwargs.get('force_write_config',False):
+            with open (config_path,'w') as json_file:
+                json.dump(config,json_file,indent=6)
+        else:
+            print('force_write_config was deemed to be cap')
         del job
         del inp
     if ledger is not None:

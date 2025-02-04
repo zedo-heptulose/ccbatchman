@@ -11,14 +11,15 @@ import time
 
 import glob
 
-rule_relpath = '../config/file_parser_config/'
-src_dir = os.path.dirname(os.path.abspath(__file__))
-RULEPATH = os.path.normpath(os.path.join(src_dir,rule_relpath))
-ORCARULES = os.path.join(RULEPATH,'orca_rules.dat')
-GAUSSRULES = os.path.join(RULEPATH,'gaussian_rules.dat')
-CRESTRULES = os.path.join(RULEPATH,'crest_rules.dat')
-XTBRULES = os.path.join(RULEPATH,'xtb_rules.dat')
-PYAROMARULES = os.path.join(RULEPATH,'pyaroma_rules.dat')
+this_script_path = os.path.abspath(__file__)
+rules_dir = os.path.join(this_script_path,'../../config/file_parser_config')
+rules_dir = os.path.normpath(rules_dir)
+ORCARULES  = os.path.join(rules_dir,'orca_rules.dat')
+GAUSSRULES = os.path.join(rules_dir,'gaussian_rules.dat')
+XTBRULES   = os.path.join(rules_dir,'xtb_rules.dat')
+CRESTRULES = os.path.join(rules_dir,'crest_rules.dat')
+PYAROMARULES=os.path.join(rules_dir,'pyaroma_rules.dat')
+
 
 class JobHarness:
     def __init__(self):
@@ -57,6 +58,9 @@ class JobHarness:
             json.dump(data_dict, json_file,indent="")
 
     def from_dict(self,data): #TODO: FIX RULESET HACK!
+        old_data = self.to_dict()
+        old_data.update(data)
+        data = old_data.copy()
         self.directory = data['directory']
         self.job_name = data['job_name']
         self.status = data['status']
@@ -94,8 +98,12 @@ class JobHarness:
         debug = kwargs.get('debug',False)
         in_progress = True
         slurm_status = "N/A"
-        
         slurm_read = False
+        #this way we avoid complication; just do this when updating status.
+        #allows us to check status given only a directory and basename
+        if not self.job_id or self.job_id == -1:
+            self.get_id()
+            
 
         for attempt in range(5):    #needs
             try:
