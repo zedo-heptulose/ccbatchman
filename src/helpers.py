@@ -32,7 +32,7 @@ def merge_dicts(_d1, _d2):
     return merged
 
 
-def create_input_builder(program):
+def create_input_builder(program,**kwargs):
     if program.lower() == 'orca':
         return input_generator.ORCAInputBuilder()
     elif program.lower() == 'gaussian':
@@ -47,7 +47,7 @@ def create_input_builder(program):
         raise ValueError('unsupported program')
 
 
-def create_job_harness(self,program,**kwargs):
+def create_job_harness(program,**kwargs):
     if program.lower() == 'gaussian':
         return job_harness.GaussianHarness()
     elif program.lower() == 'orca':

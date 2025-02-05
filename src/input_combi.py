@@ -118,102 +118,81 @@ def write_input_array(_configs,root_directory,**kwargs):
         configs = copy.deepcopy(_configs.values())
     else:
         configs = copy.deepcopy(_configs)
-    #for modifying the ledger as needed    
+    
     ledger_filename = kwargs.get('ledger','__ledger__.csv')
     ledger_path = os.path.join(root_directory,ledger_filename)
     ledger = None
+    
     if os.path.exists(ledger_path):
         ledger = pd.read_csv(ledger_path,sep='|')
+    
     for config in configs:
-        #print(f"CONFIG: \n{config}")
-        if config['program'].lower() == 'orca':
-            inp = input_generator.ORCAInputBuilder()
-        elif config['program'].lower() == 'gaussian':
-            inp = input_generator.GaussianInputBuilder()
-        elif config['program'].lower() == 'crest':
-            inp = input_generator.CRESTInputBuilder()
-        elif config['program'].lower() == 'xtb':
-            inp = input_generator.xTBInputBuilder()
-        elif config['program'].lower() == 'pyaroma':
-            inp = input_generator.pyAromaInputBuilder()
-        else:
-            raise ValueError('unsupported program')
         config['write_directory'] = os.path.join(root_directory,config['write_directory'],config['job_basename'])
+        inp = helpers.create_input_builder(config['program'])
         inp.change_params(config)
         job = inp.build()
         config_path = os.path.join(job.directory,'job_config.json')
         force_overwrite = config.get('!overwrite',False)
+        do_overwrite = False
+        
+        if force_overwrite == True or force_overwrite == 'not_succeeded':
+            job_reader = helpers.create_job_harness(config['program'])
+            job_reader.directory = config['write_directory'] 
+            job_reader.job_name = config['job_basename'] 
+            job_reader.restart = True  #does this matter?
+            job_reader.update_status()
+            job_reader.write_json()
+    
+            if job_reader.status in ['succeeded','running','pending']:
+                do_overwrite = False
+            else:
+                do_overwrite = True
+        
+        elif force_overwrite == 'all':
+            do_overwrite = True
 
-        #try to do oneiter with job if output already exists
-        if force_overwrite == 'not_succeeded' or force_overwrite is True: #really, failed and not started
-            job_succeeded = False
-            if ledger is not None:    
-                identify_mask = (ledger['job_basename'] == config['job_basename']) & (ledger['job_directory'] == config['write_directory'])
+        if do_overwrite:
+            job.create_directory(force=True)
+            with open (config_path,'w') as json_file:
+                json.dump(config,json_file,indent=6)
+    
+            if ledger is not None:
+                identify_mask = (ledger['job_basename'] == config['job_basename']) &\
+                                (ledger['job_directory'] == config['write_directory'])   
+                
                 if identify_mask.sum() > 1:
                     raise ValueError("Multiple jobs found with the same name.")
-
-                filtered_status = ledger.loc[identify_mask,'job_status']                    
-                if not filtered_status.empty:
-                    if ledger.loc[identify_mask,'job_status'].iloc[0] in ['succeeded','running','pending']:
-                        #print("JOB ALREADY SUCCEEDED or RUNNING or PENDING")
-                        job_succeeded = True
-                    else:
-                        print("Overwriting job")
-                        job_succeeded = False
+                elif identify_mask.sum() == 0:
+                    pass
                 else:
-                   # print("job not found")
-                    job_succeeded = False
-                
-                    
-                if not job_succeeded:
                     ledger.loc[identify_mask, 'job_id'] = f"{-1}"
                     ledger.loc[identify_mask, 'job_status'] = 'not_started'
                     ledger.loc[identify_mask, 'coords_from'] = config.get('!coords_from',None)
                     ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
-             
-            if not job_succeeded:
-                job.create_directory(force=True)
-                with open (config_path,'w') as json_file:
-                    json.dump(config,json_file,indent=6)
-
-        
-        elif force_overwrite == 'all':
-            job_succeeded = False
-            if ledger is not None:    
-                identify_mask = (ledger['job_basename'] == config['job_basename']) & (ledger['job_directory'] == config['write_directory'])
                 
-                if identify_mask.sum() > 1:
-                    raise ValueError("Multiple jobs found with the same name.")
-            
-                ledger.loc[identify_mask, 'job_id'] = f"{-1}"
-                ledger.loc[identify_mask, 'job_status'] = 'not_started'
-                ledger.loc[identify_mask, 'coords_from'] = config.get('!coords_from',None)
-                ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
-                
-            job.create_directory(force=True)
-            with open (config_path,'w') as json_file:
-                json.dump(config,json_file,indent=6)
-             
         else:
             try:
                 job.create_directory(force=False)
                 with open (config_path,'w') as json_file:
                     json.dump(config,json_file,indent=6)
             except:
-                pass #directory already exists, exception
-            
+                pass
+
         if kwargs.get('force_write_config',False):
             with open (config_path,'w') as json_file:
                 json.dump(config,json_file,indent=6)
 
         del job
         del inp
+        
     if ledger is not None:
         ledger.to_csv(ledger_path,sep='|',index=False)
+
     return
-    
-#TODO
-#really need to overwrite ledger with not_started when doing this...
+
+        
+
+
 
 
 def write_batchfile(_configs,root_dir,filename):
