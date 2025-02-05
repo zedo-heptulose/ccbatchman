@@ -1,5 +1,6 @@
 import helpers
 import input_generator
+import job_harness
 import itertools
 import os
 import re
@@ -7,15 +8,6 @@ import copy
 import pandas as pd
 import json
 
-
-#iterate inputs has some new rules
-#some of the dicts in the list_of_dicts..
-#will be flags.
-#this needs to handle this
-
-#so currently, it would trace a path through these keys...
-
-#idea being, iterate_inputs(*sort_flags(lodod))
 
 FLAGS = ['!directories']
 
@@ -151,7 +143,8 @@ def write_input_array(_configs,root_directory,**kwargs):
         job = inp.build()
         config_path = os.path.join(job.directory,'job_config.json')
         force_overwrite = config.get('!overwrite',False)
-        
+
+        #try to do oneiter with job if output already exists
         if force_overwrite == 'not_succeeded' or force_overwrite is True: #really, failed and not started
             job_succeeded = False
             if ledger is not None:    
@@ -212,8 +205,7 @@ def write_input_array(_configs,root_directory,**kwargs):
         if kwargs.get('force_write_config',False):
             with open (config_path,'w') as json_file:
                 json.dump(config,json_file,indent=6)
-        else:
-            print('force_write_config was deemed to be cap')
+
         del job
         del inp
     if ledger is not None:

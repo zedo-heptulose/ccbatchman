@@ -1,6 +1,9 @@
 import json
 import copy
 
+import input_generator
+import job_harness
+
 def merge_dicts(_d1, _d2):
     d1 = copy.deepcopy(_d1)
     d2 = copy.deepcopy(_d2)
@@ -27,6 +30,35 @@ def merge_dicts(_d1, _d2):
             merged[key] = value  # Add new key-value pair from d2
 
     return merged
+
+
+def create_input_builder(program):
+    if program.lower() == 'orca':
+        return input_generator.ORCAInputBuilder()
+    elif program.lower() == 'gaussian':
+        return input_generator.GaussianInputBuilder()
+    elif program.lower() == 'crest':
+        return input_generator.CRESTInputBuilder()
+    elif program.lower() == 'xtb':
+        return input_generator.xTBInputBuilder()
+    elif program.lower() == 'pyaroma':
+        return input_generator.pyAromaInputBuilder()
+    else:
+        raise ValueError('unsupported program')
+
+
+def create_job_harness(self,program,**kwargs):
+    if program.lower() == 'gaussian':
+        return job_harness.GaussianHarness()
+    elif program.lower() == 'orca':
+        return job_harness.ORCAHarness()
+    elif program.lower() == 'crest':
+        return job_harness.CRESTHarness()
+    elif program.lower() == 'xtb':
+        return job_harness.xTBHarness()
+    elif program.lower() == 'pyaroma':
+        return job_harness.pyAromaHarness()
+
 
 
 #we have this very silly looking function in case we ever want to change
