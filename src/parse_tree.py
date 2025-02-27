@@ -41,9 +41,9 @@ class ParseTree:
                self.display_function(xyz_path)
         current_node.directory = dirpath #now we needn't specify directories within nodes when making them
 
-        ########### HOTFIX 12/30/24
+        #hotfix for if we set a basename with multiple directories, which occasionally happens
+        #this is the intended behavior
         current_node.basename = os.path.basename(current_node.basename) 
-        ########### HOTFIX 12/30/24
         
         if self.debug : print(f"DIRECTORY: {current_node.directory}")
         if self.debug : print(f"BASENAME: {current_node.basename}")
@@ -79,6 +79,9 @@ class ParseLeaf(ParseNode):
         if self.debug: print(f"opening file: {self.json_path}")
         ruleset = None
         #TODO: fix this bad code
+        if not os.path.exists(self.directory):
+            raise ValueError(f"ParseLeaf attemped to access non-existent directory: {self.directory}")
+        
         if os.path.exists(run_info_path := os.path.join(self.directory,'run_info.json')):
             with open(run_info_path,'r') as json_file:
                 data = json.load(json_file)
@@ -239,6 +242,13 @@ class ThermoNode(ParseNode):
                 reaction_coefficient = self.coefficients[key][1]
                 new_key = f"{product_or_reactant}_{energy_type}"
                 energy = self.children[key].data.get(energy_type,None)
+                if energy is None:
+                    print(f"Read failed.")
+                    print(f"key: {key} | energy type: {energy_type}")
+                    print(f"Data of broken node:")
+                    print(self.children[key].data)
+                    print(f"Children of thermo node:")
+                    print(self.children)
                 if energy and (reaction_data.get(new_key,0) is not None):
                     reaction_data[new_key] =\
                         reaction_data.get(new_key,0) +\
@@ -255,6 +265,7 @@ class ThermoNode(ParseNode):
             else:
                 reaction_data[f"{delta_label}_{energy_type}"] = np.nan
                 print(f"{delta_label}_{energy_type} could not be calculated")
+                
 
         self.data = reaction_data
 

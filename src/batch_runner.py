@@ -91,9 +91,12 @@ class BatchRunner:
         dependencies = row['coords_from']
         #TODO: fix this, if we ever make dependencies a list
         if self.debug and type(dependencies) is str: 
+            print(f"checking dependences for {row['job_directory']}")
             print(
                 f"dependencies: {os.path.abspath(os.path.join(row['job_directory'],dependencies))}"
                 )
+        if row['coords_from'] == './':
+            return True
         dependency_abs_path = os.path.abspath(os.path.join(row['job_directory'],row['coords_from']))
         xyz_path = os.path.join(dependency_abs_path,row['xyz_filename'])
         if not os.path.exists(xyz_path):
@@ -179,6 +182,8 @@ class BatchRunner:
 
     def transfer_coords(self,ledger_row,job):
         xyz_directory = ledger_row['coords_from']
+        if xyz_directory == './':
+            return
         xyz_filename = ledger_row['xyz_filename']
         
         if not xyz_directory or pd.isna(xyz_directory)\
@@ -202,6 +207,8 @@ class BatchRunner:
                     2: {input_program}
                     """)
         xyz_directory = os.path.join(job.directory,xyz_directory)
+        if input_path == xyz_path:
+            return
         editor.replace_xyz_file(
                 input_path,xyz_path,input_program
         )
@@ -294,6 +301,8 @@ class BatchRunner:
 
     def write_ledger(self,**kwargs):
         ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
+        if self.debug:
+            print(f"writing ledger to disk with path {ledger_path}")
         self.ledger.to_csv(ledger_path,sep='|',index=False)
 
 
@@ -383,16 +392,16 @@ class BatchRunner:
         if self.debug: print("LEDGER AFTER READING BATCHFILE")
         if self.debug: self.ledger.to_csv('lar.csv')
         
-        if self.restart and os.path.exists('./__ledger__.csv'):
-            #try:
+        if self.restart and os.path.exists(self.ledger_filename):
+            try:
                 if self.debug: print("READING OLD LEDGER AND MERGING")
                 self.read_old_ledger()
                 if self.debug: print("LEDGER AFTER MERGE:")
                 if self.debug: self.ledger.to_csv('lam.csv')
                 if self.debug: print("RESTARTING OLD JOB HARNESSES")
                 self.restart_job_harnesses()
-            #except:
-             #   print("NO LEDGER FOUND TO RESTART FROM")
+            except:
+                print("NO LEDGER FOUND TO RESTART FROM")
         return self
 
 
@@ -458,6 +467,7 @@ class BatchRunner:
     def MainLoop(self,**kwargs):
         print('batch_runner\nInitializing run\n')
         self.initialize_run()
+        self.write_ledger()
         if self.status_only:
             print("RUNNING STATUS CHECK:")
             self.check_status_all()
@@ -477,11 +487,15 @@ class BatchRunner:
         return
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Driver program for sequentially submitting jobs through Slurm and managing pipes")
+    parser = argparse.ArgumentParser(description="Driver program for sequentially submitting jobs through Slurm and managing job dependencies")
     parser.add_argument("input_file", type=str, help="Path to .csv batchfile with appropriate format")
     parser.add_argument("-v", "--verbose", action="store_true",help="Enable debug/verbose print statements")
     parser.add_argument("-j", "--num-jobs", type=int, help="Max no. jobs running in parallel")
     parser.add_argument("-s","--status-only",action="store_true",help="Update status of all jobs but don't submit anything")
+
+    ##NEW AND UNTESTED
+    parser.add_argument("-l","--ledger-filename",type=str,help="filename of ledger to use for this run")
+
 
     args = parser.parse_args()
 
@@ -489,7 +503,17 @@ if __name__ == "__main__":
     verbose = args.verbose
     num_jobs = args.num_jobs
     status_only = args.status_only
-    batch_runner = BatchRunner(input_file=input_file,debug=verbose,num_jobs=num_jobs,status_only=status_only)
+
+    ##NEW AND UNTESTED
+    ledger_filename = args.ledger_filename if args.ledger_filename else '__ledger__.csv'
+
+    batch_runner = BatchRunner(
+        input_file=input_file,
+        debug=verbose,
+        num_jobs=num_jobs,
+        status_only=status_only,
+        ledger_filename=ledger_filename,
+    )
     batch_runner.MainLoop()
 
 

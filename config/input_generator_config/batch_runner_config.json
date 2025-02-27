@@ -14,6 +14,8 @@
   "runtime" : "3-00:00:00",
   "write_directory" : ".",
   "job_basename" : "batch_runner",
-  "verbosity" : true,
+  "verbosity" : false,
+  "input_file" : "batchfile.csv",
+  "ledger_filename" : "__ledger__.csv",
   "max_jobs" : 1
 }

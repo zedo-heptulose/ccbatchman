@@ -4,5 +4,7 @@ H_au ; Sum of electronic\s+and\s+thermal\s+Enthalpies ; last ; float
 G_au ; Sum of electronic and thermal Free Energies ; last ; float
 imaginary_frequencies ; imaginary ; found   
 is_opt_freq ; (?i)opt\s+freq  ; found
+opt_fail ; Optimization stopped ; found
+bad_internals ; FormBX had a problem ; found
 success ; Normal\s*termination\s*of\s*Gaussian ; found
 success_opt_freq ; Normal\s*termination\s*of\s*Gaussian ; at_least_2
