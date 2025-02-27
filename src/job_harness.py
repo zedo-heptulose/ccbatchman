@@ -99,6 +99,7 @@ class JobHarness:
         in_progress = True
         slurm_status = "N/A"
         slurm_read = False
+
         #this way we avoid complication; just do this when updating status.
         #allows us to check status given only a directory and basename
         if not self.job_id or self.job_id == -1:
@@ -266,6 +267,8 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         self.write_json()
         if not (self.status == 'not_started' or self.status == 'pending'):
             self.parse_output()
+        if self.status == 'failed':
+            self.prune_temp_files()
     
     def final_parse(self):
         pass
@@ -299,7 +302,8 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         print()
         print("////////////////////////////////////////////////////////") 
         print('removing .tmp files')
-        files_to_remove = glob.glob(os.path.join(self.directory, '*{self.tmp_extension}*'))
+       
+        files_to_remove = glob.glob(os.path.join(self.directory, f"*{self.tmp_extension}*"))
 
         for file in files_to_remove:
             print(file)

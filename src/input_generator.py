@@ -155,20 +155,28 @@ class GaussianInput(CCInput):
         #full_xyz_path = os.path.join(self.directory,self.xyzfile)  
         if not self.coordinates:
             if self.debug: print('existing coordinates not found')
-            xyz_path = os.path.join(self.directory,self.xyzfile)
-            if self.debug: print(f"reading coordinates from path {xyz_path}")
-            if os.path.exists(xyz_path):
-                with open(xyz_path,'r') as xyzfile:
-                    self.coordinates = xyzfile.readlines()[2:]
-            else:
-                print("wrote gaussian input without coordinates")
-            if self.debug: print(f"self.coordinates after reading:\n{self.coordinates}")
+            if self.directory and self.xyzfile:
+                xyz_path = os.path.join(self.directory,self.xyzfile)
+            
+                if self.debug: print(f"reading coordinates from path {xyz_path}")
+                if os.path.exists(xyz_path):
+                    with open(xyz_path,'r') as xyzfile:
+                        self.coordinates = xyzfile.readlines()[2:]
+                else:
+                    print("wrote gaussian input without coordinates")
+                if self.debug: print(f"self.coordinates after reading:\n{self.coordinates}")
         
         with open(full_path,'w') as gjffile:
+            memory_gb = int(self.nprocs*self.mem_per_cpu_gb)
+            if not memory_gb:
+                print(f"memory_gb: {memory_gb}")
+                print(f"nprocs: {self.nprocs}")
+                print(f"mem_per_cpu_gb: {self.mem_per_cpu_gb}")
+                raise ValueError('memory set to zero in GaussianInput')
             path_noext = os.path.splitext(full_path)[0]
             gjffile.write(f"%nprocshared={self.nprocs}\n")
-            gjffile.write(f"%mem={int(self.nprocs*self.mem_per_cpu_gb)}gb\n")
-            gjffile.write(f"%chk={path_noext}.chk\n")
+            gjffile.write(f"%mem={memory_gb}gb\n")
+            gjffile.write(f"%chk={self.basename}.chk\n")
             gjffile.write(f"#{' '.join(self.keywords)}\n")
             gjffile.write(f"\n")
             gjffile.write(f"{self.title}\n")
@@ -217,7 +225,7 @@ class GaussianInput(CCInput):
                 if self.debug: print(f'setting nprocs: {self.nprocs}')
             
             elif re.match(r'\s*%\s*mem\s*',line,re.I):
-                mem = int(re.search(r'(\d+)(?:\s*gb)',line,re.I).group(1)) / self.nprocs
+                mem = int(re.search(r'(\d+)(?:\s*gb)',line,re.I).group(1)) // self.nprocs
                 if self.debug: print(f'setting mem_per_cpu: {self.mem_per_cpu_gb}')
 
             elif re.match(r'\s*chk\s*',line,re.I):
@@ -253,7 +261,8 @@ class GaussianInput(CCInput):
             
 
         #TODO: allow more flexibility here
-        self.mem_per_cpu_gb = int(mem // self.nprocs)
+        
+        self.mem_per_cpu_gb = mem #we were doing floor division twice and making it zero
         if mem == -1:
             raise ValueError('memory flag not read')
             #if self.debug: print('WARNING: mem_per_cpu not found! using default 2gb/core')
@@ -263,6 +272,9 @@ class GaussianInput(CCInput):
             #if self.debug: print('WARNING: nprocs not found! using default 1 processor')
             #self.nprocs = 1
 
+        #oh we literally just didn't do anything with memory or cores when reading these jobs whoops
+        
+        
         self.title = self.title.strip()
         if self.debug: print(f"coordinates:\n{self.coordinates}")
 
@@ -358,7 +370,7 @@ class xTBScript(SbatchScript):
 
 
 class Job:
-    def __init__(self):
+    def __init__(self): 
         self.debug = False
         self.directory = "./"
         self.inp = Input() #or None, or other type #this throws an exception if not replaced
@@ -367,26 +379,30 @@ class Job:
         self.xyz = "test.xyz"
         
     def create_directory(self,**kwargs):
-        force_overwrite = kwargs.get('force',False)
-        file_exists = os.path.exists(self.directory)
-        if file_exists:
-            if force_overwrite:
+        overwrite_directory = kwargs.get('overwrite_directory',False)
+        overwrite_input     = kwargs.get('overwrite_input',False)
+        if os.path.exists(self.directory):
+            if overwrite_directory: 
                 print(f"overwriting directory: {self.directory}")
-                shutil.rmtree(self.directory)
+                shutil.rmtree(self.directory)            
+                os.makedirs(self.directory)
+            elif overwrite_input:
+                print(f"overwriting input files: {self.directory}")
+
             else:
                 raise ValueError('input_files.Job tried to overwrite existing directory')
-        
-        if self.debug: print(f"making directory: {self.directory}")
-        os.makedirs(self.directory)
-        source_file = os.path.join(self.xyz_directory,self.xyz)
-        if self.debug: print(f"xyz source file: {source_file}")
-        dest_file = os.path.join(self.directory,self.xyz)
-        if self.debug: print(f"xyz destination file: {dest_file}")
-        if os.path.exists(source_file):
-            shutil.copyfile(source_file, dest_file)
-        elif self.debug: 
-            print(f'could not copy {source_file} to {dest_file}.')
-        
+        else:     
+            if self.debug: print(f"making directory: {self.directory}")
+            os.makedirs(self.directory)
+        if self.xyz_directory and self.xyz:
+            source_file = os.path.join(self.xyz_directory,self.xyz)
+            if self.debug: print(f"xyz source file: {source_file}")
+            dest_file = os.path.join(self.directory,self.xyz)
+            if self.debug: print(f"xyz destination file: {dest_file}")
+            if source_file is not None and os.path.exists(source_file):
+                shutil.copyfile(source_file, dest_file)
+            elif self.debug: 
+                print(f'could not copy {source_file} to {dest_file}.')
         if self.debug: print('writing input, if applicable')
         if self.inp:
             self.inp.directory = self.directory
@@ -578,7 +594,9 @@ class GaussianInputBuilder(InputBuilder):
         inp.mem_per_cpu_gb = self.config['mem_per_cpu_GB']
         inp.charge = self.config['charge']
         inp.multiplicity = self.config['spin_multiplicity']
-        inp.xyzfile = os.path.join(self.config['xyz_file']) 
+
+        inp.xyzfile = self.config.get('xyz_file',None)
+
         return inp
 
 
@@ -717,9 +735,11 @@ class BatchRunnerInputBuilder(InputBuilder):
         job_basename = self.config['job_basename']
         max_jobs = self.config['max_jobs']
         verbose = self.config['verbosity']
+        input_file = self.config['input_file'] 
 
         verbose_string = '-v' if verbose else ''
-        submit_line = f"python3 {command} batchfile.csv {verbose_string} -j {max_jobs} > {job_basename}.out"
+        ledger_string = f"-l {self.config['ledger_filename']}"
+        submit_line = f"python3 {command} {input_file} {verbose_string} -j {max_jobs} {ledger_string} > {job_basename}.out"
         return submit_line
 
     def build_input(self):
