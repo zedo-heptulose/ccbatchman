@@ -39,11 +39,11 @@ def do_everything(root_directory,run_settings,*args,**kwargs):
         paths = iterate_inputs(configs,flags)
         ledger_filename = run_settings.get('ledger_filename','__ledger__.csv')
         write_input_array(paths,root_directory,ledger=ledger_filename,**kwargs)
-        print('editing batchfile')
+        if kwargs.get('debug',False): print('editing batchfile')
         batchfile_name = run_settings.get('input_file','batchfile.csv')
         write_batchfile(paths,root_directory,batchfile_name)
     if run_settings is not None:
-        print('creating script for run')
+        if kwargs.get('debug',False): print('creating script for run')
         write_own_script(run_settings,root_directory)
 
 def write_own_script(run_settings,root_dir):
@@ -117,11 +117,9 @@ def iterate_inputs(list_of_dict_of_dicts,flag_array,**kwargs):
         #this should fix the logic? 
         #we don't add to config_dict unless there's the !directories flag...
         if '/' in name:
-            print('new thing I added')
-            print(name)
             basename = os.path.basename(name)
             config_dict['job_basename'] = basename
-            print(config_dict['job_basename'])
+            if kwargs.get('debug',False): print(config_dict['job_basename'])
         else:
             config_dict['job_basename'] = name
         #print(config_dict.get('!xyz_file','IF I HAD ONE'))
@@ -226,7 +224,7 @@ def write_input_array(_configs,root_directory,**kwargs):
 
         if os.path.exists(ledger_path):
             ledger = pd.read_csv(ledger_path,sep='|')
-            print(f'ledger exists: {ledger_path}')
+            if kwargs.get('debug',False): print(f'ledger exists: {ledger_path}')
         #if we have a ledger, update it
         if (overwrite_directory or overwrite_input) and ledger is not None:
             identify_mask = (ledger['job_basename'] == config['job_basename']) &\
@@ -235,9 +233,9 @@ def write_input_array(_configs,root_directory,**kwargs):
             if identify_mask.sum() > 1:
                 raise ValueError("Multiple jobs found with the same name.")
             elif identify_mask.sum() == 0:
-                print('nothing satisfies parameters')
-                print(f"write/ directory: {config['write_directory']} | {ledger['job_basename']}")
-                print(f"basename: {config['job_basename']} | {ledger['job_directory']}")
+                if kwargs.get('debug',False): print('nothing satisfies parameters')
+                if kwargs.get('debug',False): print(f"write/ directory: {config['write_directory']} | {ledger['job_basename']}")
+                if kwargs.get('debug',False): print(f"basename: {config['job_basename']} | {ledger['job_directory']}")
             else:
                 ledger.loc[identify_mask, 'job_id'] = f"{-1}"
                 ledger.loc[identify_mask, 'job_status'] = 'not_started'
@@ -259,7 +257,7 @@ def write_input_array(_configs,root_directory,**kwargs):
 
 
 
-def write_batchfile(_configs,root_dir,filename):
+def write_batchfile(_configs,root_dir,filename,**kwargs):
     path = os.path.join(root_dir,filename)
     existed = os.path.exists(path)
     append_or_write = 'w'
@@ -283,9 +281,9 @@ def write_batchfile(_configs,root_dir,filename):
         for config in _configs:
             job_basename = config['job_basename']
             #TODO: this must not redundantly inlcude root
-            print("in write_batchfile()")
-            print(config['write_directory'])
-            print(config['job_basename'])
+            if kwargs.get('debug',False): print("in write_batchfile()")
+            if kwargs.get('debug',False): print(config['write_directory'])
+            if kwargs.get('debug',False): print(config['job_basename'])
             job_directory = config['write_directory']
             program = config['program']
             coords_from = config.get('!coords_from',None)
