@@ -163,7 +163,7 @@ class GaussianInput(CCInput):
                     with open(xyz_path,'r') as xyzfile:
                         self.coordinates = xyzfile.readlines()[2:]
                 else:
-                    print("wrote gaussian input without coordinates")
+                    if self.debug: print("wrote gaussian input without coordinates")
                 if self.debug: print(f"self.coordinates after reading:\n{self.coordinates}")
         
         with open(full_path,'w') as gjffile:
