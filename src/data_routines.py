@@ -292,7 +292,8 @@ class ComputationalDataProcessor:
         return plt.gcf()
 
     def analyze_bond_dissociation(self, bond_type, molecule_data, of_dir, sp_dir, 
-                                  title=None, ylim=(0, 120), save_path=None):
+                                  title=None, ylim=(0, 120), save_path=None,
+                                 debug=False):
         """
         Analyze and visualize bond dissociation energies.
         
@@ -338,7 +339,7 @@ class ComputationalDataProcessor:
                     }
                 elif bond_type == 'C-F':
                     products = {
-                        f"_water_{data[2]}_{data[0]}_CF2_{i}_CF_CF2_{6-i}_CF3": 1,
+                        f"_water_{data[1]}_{data[0]}_CF2_{i}_CF_CF2_{6-i}_CF3": 1,
                         "_water_0_2_f": 1,
                     }
                     reactants = {
