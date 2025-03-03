@@ -172,11 +172,11 @@ class CompoundNode(ParseNode):
                 data[conversion_key] = electronic_energy + data[thermal_key] 
             elif not data[thermal_key]:
                 child_dir = self.children[self.opt_freq_key].directory
-                print(f"No key {thermal_key} for {child_dir}, setting energy to np.nan")
+                if self.debug: print(f"No key {thermal_key} for {child_dir}, setting energy to np.nan")
             elif not electronic_energy:
                 data[conversion_key] = None
                 child_dir = self.children[self.singlepoint_key].directory
-                print(f"No key E_el_au for {child_dir}, setting energy to np.nan")
+                if self.debug: print(f"No key E_el_au for {child_dir}, setting energy to np.nan")
             
         self.data = data
 
@@ -242,7 +242,7 @@ class ThermoNode(ParseNode):
                 reaction_coefficient = self.coefficients[key][1]
                 new_key = f"{product_or_reactant}_{energy_type}"
                 energy = self.children[key].data.get(energy_type,None)
-                if energy is None:
+                if energy is None and self.debug:
                     print(f"Read failed.")
                     print(f"key: {key} | energy type: {energy_type}")
                     print(f"Data of broken node:")
@@ -264,7 +264,7 @@ class ThermoNode(ParseNode):
                 reaction_data[f"{delta_label}_{energy_type}"] = product_energy - reactant_energy
             else:
                 reaction_data[f"{delta_label}_{energy_type}"] = np.nan
-                print(f"{delta_label}_{energy_type} could not be calculated")
+                if self.debug: print(f"{delta_label}_{energy_type} could not be calculated")
                 
 
         self.data = reaction_data
@@ -274,7 +274,7 @@ class ThermoNode(ParseNode):
                 try:
                     self.data[p_key] = self.children[child_key].data[p_key]
                 except:
-                    print(f'could not percolate key {p_key}')
+                    if self.debug: print(f'could not percolate key {p_key}')
             
         self.data = postprocessing.delta_unit_conversions(self.data)
         return self

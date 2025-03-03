@@ -190,22 +190,47 @@ class WorkflowGenerator:
         
         return self
     
-    def add_cm_states(self, charges_multiplicities: List[Tuple[int, int]], 
-                     group_name: str = None) -> 'WorkflowGenerator':
+    def add_cm_states(self, cm_state_configs, group_name=None):
         """
-        Add charge-multiplicity states.
+        Add charge-multiplicity states with additional configuration options.
         
         Parameters:
-            charges_multiplicities (list): List of (charge, multiplicity) tuples
+            cm_state_configs (list): List of configurations in one of these formats:
+                - (charge, multiplicity) tuple
+                - (charge, multiplicity, alias) tuple
+                - dict with keys for 'charge', 'multiplicity', 'alias' (optional),
+                  'uks' (optional), 'broken_symmetry' (optional)
             group_name (str): Optional name for this group of CM states
-            
+                
         Returns:
             self: For method chaining
         """
         cm_states = {}
-        for charge, multiplicity in charges_multiplicities:
-            key = f"{charge}_{multiplicity}"
-            cm_states[key] = self._get_charge_multiplicity_settings(charge, multiplicity)
+        
+        for config in cm_state_configs:
+            if isinstance(config, tuple):
+                if len(config) == 2:
+                    charge, multiplicity = config
+                    alias = f"{charge}_{multiplicity}"
+                    settings = self._get_charge_multiplicity_settings(charge, multiplicity)
+                elif len(config) == 3:
+                    charge, multiplicity, alias = config
+                    settings = self._get_charge_multiplicity_settings(charge, multiplicity)
+                else:
+                    raise ValueError(f"Invalid CM state tuple format: {config}")
+            elif isinstance(config, dict):
+                charge = config['charge']
+                multiplicity = config['multiplicity']
+                alias = config.get('alias', f"{charge}_{multiplicity}")
+                uks = config.get('uks', None)
+                # uhf = config.get('uhf', None) #implement this when we get a chance...
+                broken_symmetry = config.get('broken_symmetry', False)
+                settings = self._get_charge_multiplicity_settings(
+                    charge, multiplicity, uks, broken_symmetry)
+            else:
+                raise ValueError(f"Invalid CM state format: {config}")
+            
+            cm_states[alias] = settings
         
         if group_name:
             self.cm_states[group_name] = cm_states
@@ -213,7 +238,7 @@ class WorkflowGenerator:
             self.cm_states.update(cm_states)
         
         return self
-    
+        
     def set_solvents(self, solvent_names: List[str] = None,split_directories=False) -> 'WorkflowGenerator':
         """
         Set solvents.
