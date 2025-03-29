@@ -586,7 +586,8 @@ class GaussianInputBuilder(InputBuilder):
             inp.keywords.append(self.config['other_keywords'])
     
         if self.config['broken_symmetry']:
-            raise ValueError("Gaussian does not support Broken Symmetry")
+            print("Gaussian does not support Broken Symmetry, Using Guess=Mix")
+            inp.keywords.append('Guess=Mix')
         if self.config['mix_guess']:
             inp.keywords.append('Guess=Mix')
 

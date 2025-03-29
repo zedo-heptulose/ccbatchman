@@ -269,6 +269,8 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             self.parse_output()
         if self.status == 'failed':
             self.prune_temp_files()
+        elif self.status == 'succeeded': #this is what we were missing
+            self.final_parse()
     
     def final_parse(self):
         pass
@@ -337,7 +339,7 @@ class ORCAHarness(JobHarness):
 
     def final_parse(self):
         opp = postprocessing.OrcaPostProcessor(self.directory,self.job_name)
-        opp.pp_routine()
+        opp.orca_pp_routine()
 
 
 class GaussianHarness(JobHarness):
@@ -350,9 +352,89 @@ class GaussianHarness(JobHarness):
     
     def interpret_fp_out(self, file_parser_output):
         if file_parser_output['is_opt_freq']:
-            self.status = 'succeeded' if file_parser_output['success_opt_freq'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['success_opt_freq'] and file_parser_output['success_opt_freq_2'] else 'failed'
+            if file_parser_output['imaginary_frequencies']:
+                self.status = 'failed'
         else:
             self.status = 'succeeded' if file_parser_output['success'] else 'failed'
+        
+
+    def final_parse(self):
+        """Extract final coordinates from successful optimization job"""
+        with open(os.path.join(self.directory,'job_config.json'),'r') as json_file:
+            data = json.load(json_file)
+            
+        if 'opt' in data['run_type'].lower(): 
+            print('################')
+            print('parsing finally!')
+            print('################')
+            self.extract_final_coordinates()
+
+    @property
+    def output_path(self):
+        return os.path.join(self.directory, self.job_name) + self.output_extension
+    
+    def extract_final_coordinates(self):
+        """Extract final coordinates from Gaussian output file and save as XYZ"""
+        output_path = self.output_path
+        xyz_path = os.path.join(self.directory, self.job_name) + '.xyz'
+        
+        if not os.path.exists(output_path):
+            print(f"Output file not found: {output_path}")
+            return
+        
+        try:
+            with open(output_path, 'r') as f:
+                lines = f.readlines()
+            
+            # Find the last occurrence of Standard orientation
+            standard_orientation_indices = [i for i, line in enumerate(lines) if "Input orientation" in line]
+            
+            if not standard_orientation_indices:
+                print(f"No standard orientation section found in {output_path}")
+                return
+            
+            last_orientation_index = standard_orientation_indices[-1]
+            
+            # Extract coordinates
+            coord_lines = []
+            atoms = []
+            i = last_orientation_index + 5  # Skip header lines
+            
+            while i < len(lines) and not "---" in lines[i]:
+                parts = lines[i].split()
+                if len(parts) >= 6:
+                    atomic_num = int(parts[1])
+                    x, y, z = float(parts[3]), float(parts[4]), float(parts[5])
+                    
+                    # Convert atomic number to symbol
+                    symbol = self._atomic_number_to_symbol(atomic_num)
+                    atoms.append((symbol, x, y, z))
+                i += 1
+            
+            # Write XYZ file
+            with open(xyz_path, 'w') as xyz_file:
+                xyz_file.write(f"{len(atoms)}\n")
+                xyz_file.write(f"Final coordinates from {self.job_name} optimization\n")
+                for atom in atoms:
+                    symbol, x, y, z = atom
+                    xyz_file.write(f"{symbol}  {x:.6f}  {y:.6f}  {z:.6f}\n")
+            
+            print(f"Successfully extracted coordinates to {xyz_path}")
+            
+        except Exception as e:
+            print(f"Error extracting coordinates from {output_path}: {str(e)}")
+    
+    def _atomic_number_to_symbol(self, atomic_num):
+        """Convert atomic number to element symbol"""
+        elements = {
+            1: 'H', 2: 'He', 3: 'Li', 4: 'Be', 5: 'B', 6: 'C', 7: 'N', 8: 'O', 9: 'F', 10: 'Ne',
+            11: 'Na', 12: 'Mg', 13: 'Al', 14: 'Si', 15: 'P', 16: 'S', 17: 'Cl', 18: 'Ar', 19: 'K',
+            20: 'Ca', 21: 'Sc', 22: 'Ti', 23: 'V', 24: 'Cr', 25: 'Mn', 26: 'Fe', 27: 'Co', 28: 'Ni',
+            29: 'Cu', 30: 'Zn', 31: 'Ga', 32: 'Ge', 33: 'As', 34: 'Se', 35: 'Br', 36: 'Kr'
+        }
+        return elements.get(atomic_num, f"X{atomic_num}")
+
 
 class CRESTHarness(JobHarness):
     def __init__(self):

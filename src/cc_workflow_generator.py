@@ -32,8 +32,7 @@ DEFAULT_ORCA_OPTFREQ_CONFIG = {
     "integration_grid": "DefGrid3",
     "scf_tolerance": "VeryTightSCF",
     "run_type": "OPT FREQ",
-    "!coords_from": "../crest",
-    "!xyz_file": "crest_best.xyz",
+    #TODO - FIGURE OUT AUTOAUX
 }
 
 DEFAULT_ORCA_SP_CONFIG = {
@@ -46,16 +45,12 @@ DEFAULT_GAUSSIAN_OPTFREQ_CONFIG = {
     "program": "Gaussian",
     "other_keywords": ["NoSymm", "Int=Ultrafine"],
     "run_type": "OPT FREQ",
-    "!coords_from": "../crest",
-    "!xyz_file": "crest_best.xyz",
 }
 
 DEFAULT_XTB_OPTFREQ_CONFIG = {
     "program": "XTB",
     "functional": "gfn2",
     "run_type": "ohess",  # opt-freq
-    "!coords_from": "../crest",
-    "!xyz_file": "crest_best.xyz",
 }
 
 class WorkflowGenerator:
@@ -157,7 +152,8 @@ class WorkflowGenerator:
         return self
     
     def add_molecules(self, directory: str, cm_states_group: str, 
-                     atoms: bool = False, group_name: str = None) -> 'WorkflowGenerator':
+                     atoms: bool = False, group_name: str = None,
+                     exclude: str = None) -> 'WorkflowGenerator':
         """
         Add molecules from a directory and associate them with a charge-multiplicity group.
         
@@ -166,12 +162,15 @@ class WorkflowGenerator:
             cm_states_group (str): Name of the CM states group to associate with these molecules
             atoms (bool): Whether these are atomic species (skips conformer search)
             group_name (str): Optional custom name for this group (defaults to directory name)
+            exclude (str): Optional, ignore .xyz files containing this substring
             
         Returns:
             self: For method chaining
         """
         full_path = os.path.join(self.molecule_root, directory)
         molecules = input_combi.xyz_files_from_directory(full_path)
+        if exclude:
+            molecules = {key : value for key,value in molecules.items() if not exclude in key}
         molecules['!directories'] = True
         
         # Use directory name as group name if not provided
@@ -312,7 +311,8 @@ class WorkflowGenerator:
     def add_orca_optfreq_step(self, name: str, functional: str,
                             basis: str = None, dispersion: str = None,
                             config_overrides: Dict = None,
-                            coords_source: str = "crest") -> 'WorkflowGenerator':
+                            coords_source: str = "crest",
+                            xyz_filename = None) -> 'WorkflowGenerator':
         """
         Add an ORCA geometry optimization and frequency calculation step.
         
@@ -323,6 +323,7 @@ class WorkflowGenerator:
             dispersion (str): Dispersion correction (e.g., 'D3', 'D4')
             config_overrides (dict): Settings to override defaults
             coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file for use with coords_source
             
         Returns:
             self: For method chaining
@@ -341,7 +342,13 @@ class WorkflowGenerator:
         # Set coordinate source if provided
         if coords_source:
             orca_config["!coords_from"] = f"../{coords_source}"
-            orca_config["!xyz_file"] = f"{coords_source}.xyz"
+            if xyz_filename:
+                orca_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                orca_config["!xyz_file"] = f"crest_best.xyz"
+            else:
+                orca_config["!xyz_file"] = f"{coords_source}.xyz"
+                
         
         # Override with any user settings
         if config_overrides:
@@ -352,7 +359,7 @@ class WorkflowGenerator:
     
     def add_orca_sp_step(self, name: str, functional: str, basis: str,
                        dispersion: str = None, config_overrides: Dict = None,
-                       coords_source: str = None) -> 'WorkflowGenerator':
+                       coords_source: str = None,xyz_filename=None) -> 'WorkflowGenerator':
         """
         Add an ORCA single point calculation step.
         
@@ -363,6 +370,7 @@ class WorkflowGenerator:
             dispersion (str): Dispersion correction (e.g., 'D3', 'D4')
             config_overrides (dict): Settings to override defaults
             coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file for use with coords_source
             
         Returns:
             self: For method chaining
@@ -379,8 +387,13 @@ class WorkflowGenerator:
         # Set coordinate source if provided
         if coords_source:
             orca_config["!coords_from"] = f"../{coords_source}"
-            orca_config["!xyz_file"] = f"{coords_source}.xyz"
-        
+            if xyz_filename:
+                orca_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                orca_config["!xyz_file"] = f"crest_best.xyz"
+            else:
+                orca_config["!xyz_file"] = f"{coords_source}.xyz"
+                
         # Override with any user settings
         if config_overrides:
             orca_config.update(config_overrides)
@@ -390,7 +403,7 @@ class WorkflowGenerator:
     
     def add_gaussian_optfreq_step(self, name: str, functional: str, basis: str,
                                 config_overrides: Dict = None,
-                                coords_source: str = "crest") -> 'WorkflowGenerator':
+                                coords_source: str = "crest",xyz_filename=None) -> 'WorkflowGenerator':
         """
         Add a Gaussian geometry optimization and frequency calculation step.
         
@@ -400,6 +413,7 @@ class WorkflowGenerator:
             basis (str): Basis set name
             config_overrides (dict): Settings to override defaults
             coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file for use with coords_source
             
         Returns:
             self: For method chaining
@@ -413,7 +427,12 @@ class WorkflowGenerator:
         # Set coordinate source if provided
         if coords_source:
             gaussian_config["!coords_from"] = f"../{coords_source}"
-            gaussian_config["!xyz_file"] = f"{coords_source}.xyz"
+            if xyz_filename:
+                gaussian_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                gaussian_config["!xyz_file"] = f"crest_best.xyz"
+            else:
+                gaussian_config["!xyz_file"] = f"{coords_source}.xyz"
         
         # Override with any user settings
         if config_overrides:
@@ -442,19 +461,23 @@ class WorkflowGenerator:
             theory_name = re.sub(r'[)(,]','',theory_name)
 
         return theory_name, theory
+
+
     
     def create_multi_theory_workflow(self, 
-                                   optfreq_functionals: List[Union[str,tuple]] = None,
-                                   optfreq_basis_sets: List[Union[str,tuple]] = None,
-                                   sp_functionals: List[Union[str,tuple]] = None,
-                                   sp_basis_sets: List[Union[str,tuple]] = None,
-                                   program: str = "ORCA",
-                                   include_crest: bool = True,
-                                   crest_overrides: Dict = None,
-                                   optfreq_overrides: Dict = None,
-                                   sp_overrides: Dict = None,
-                                   name_suffix: str = None,
-                                    ) -> 'WorkflowGenerator':
+                       optfreq_functionals: List[Union[str,tuple]] = None,
+                       optfreq_basis_sets: List[Union[str,tuple]] = None,
+                       sp_functionals: List[Union[str,tuple]] = None,
+                       sp_basis_sets: List[Union[str,tuple]] = None,
+                       program: str = "ORCA",
+                       optfreq_program: str = None,
+                       sp_program: str = None,
+                       do_crest: bool = True,
+                       crest_overrides: Dict = None,
+                       optfreq_overrides: Dict = None,
+                       sp_overrides: Dict = None,
+                       name_suffix: str = None,
+                        ) -> 'WorkflowGenerator':
         """
         Create multiple workflows using cartesian product of functionals/basis sets.
         
@@ -466,7 +489,9 @@ class WorkflowGenerator:
                 all of functional/basis sets can be given as tuple (name,functional)
                 or as str "functional" within list
             program (str): Program to use ('ORCA', 'Gaussian', or 'XTB')
-            include_crest (bool): Whether to include a CREST conformer search step
+            optfreq_program: Program to use for optimization + frequency step
+            sp_program: Program to use for singlepoint step
+            do_crest (bool): Whether to include a CREST conformer search step
             crest_overrides (dict): Settings to override CREST defaults
             optfreq_overrides (dict): Settings to override optfreq defaults
             sp_overrides (dict): Settings to override single point defaults
@@ -474,8 +499,12 @@ class WorkflowGenerator:
         Returns:
             self: For method chaining
         """
+        optfreq_program = optfreq_program if optfreq_program else program
+        sp_program = sp_program if sp_program else program
+        
         # Add CREST if requested
-        if include_crest:
+        
+        if do_crest:
             self.add_crest_step("crest", crest_overrides)
             coords_source = "crest"
         else:
@@ -504,14 +533,15 @@ class WorkflowGenerator:
 
             if name_suffix:
                 optfreq_name += f"_{name_suffix}"
-            if program.upper() == "ORCA":
+                
+            if optfreq_program.upper() == "ORCA":
                 self.add_orca_optfreq_step(
                     optfreq_name, functional,
                     basis=basis,
                     config_overrides=optfreq_overrides,
                     coords_source=coords_source
                 )
-            elif program.upper() == "GAUSSIAN":
+            elif optfreq_program.upper() == "GAUSSIAN":
                 optfreq_name += '_gaussian'
                 self.add_gaussian_optfreq_step(
                     optfreq_name, functional, 
@@ -519,12 +549,14 @@ class WorkflowGenerator:
                     config_overrides=optfreq_overrides,
                     coords_source=coords_source
                 )
-            elif program.upper() == "XTB":
+            elif optfreq_program.upper() == "XTB":
                 self.add_xtb_optfreq_step(
                     optfreq_name,
                     config_overrides=optfreq_overrides,
                     coords_source=coords_source
                 )
+            else:
+                raise ValueError(f"Invalid program specified for opt/freq step: {optfreq_program}")
             
             # Add single point calculations for this geometry
             if sp_functionals and sp_basis_sets:
@@ -533,14 +565,19 @@ class WorkflowGenerator:
                     sp_basis_name,sp_basis = self.split_theory_name(sp_basis)
                     sp_name = f"{sp_func_name}_{sp_basis_name}_sp_{functional_name}_{basis_name}"
                     
-                if name_suffix:
-                    sp_name += f"_{name_suffix}"
-                    #we use this verbose naming convention because ah... life easy
-                    self.add_orca_sp_step(
-                        sp_name, sp_func, sp_basis,
-                        config_overrides=sp_overrides,
-                        coords_source=optfreq_name
-                    )
+                    if name_suffix:
+                        sp_name += f"_{name_suffix}"
+                        #we use this verbose naming convention because ah... life easy
+                        #we're fine just using ORCA for singlepoints at the moment, I don't
+                        #mind that.
+                    if sp_program.upper() == "ORCA":
+                        self.add_orca_sp_step( 
+                            sp_name, sp_func, sp_basis,
+                            config_overrides=sp_overrides,
+                            coords_source=optfreq_name
+                        )
+                    else:
+                        raise ValueError('singlepoint requested for program other than ORCA')
         
         return self
     

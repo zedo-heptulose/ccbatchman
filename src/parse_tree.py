@@ -111,17 +111,19 @@ class ParseLeaf(ParseNode):
                 self.data = data
                 # print("data before postprocessing")
                 # print(self.data)
-                pp = postprocessing.OrcaPostProcessor(debug=self.debug)
-                pp.data = self.data
-                pp.thermal_energies()
-                self.data = pp.data
-                if ruleset == ORCARULES and os.path.exists(output_file):
-                    pp.basename = self.basename
-                    pp.dirname = self.directory
-                    pp.orca_pp_routine()
-                    self.data = pp.data #this was missing
-                else:
-                    if self.debug: print('file not compatible w/ orca pp routine')
+                
+                #bandaid fix - don't postprocess; will need to add kwarg later
+                # pp = postprocessing.OrcaPostProcessor(debug=self.debug)
+                # pp.data = self.data
+                # pp.thermal_energies()
+                # self.data = pp.data
+                # if ruleset == ORCARULES and os.path.exists(output_file):
+                #     pp.basename = self.basename
+                #     pp.dirname = self.directory
+                #     pp.orca_pp_routine()
+                #     self.data = pp.data #this was missing
+                # else:
+                #     if self.debug: print('file not compatible w/ orca pp routine')
         return self
                   
                   
@@ -130,10 +132,13 @@ class CompoundNode(ParseNode):
     #an optimization/frequency calculation,
     #followed by a singlepoint (at a higher LOT)
     #use postprocessing here
-    def __init__(self,basename="",of_basename="",sp_basename=""):
+    def __init__(self,basename="",of_basename="",sp_basename="",directory=None,recursive=False):
         ParseNode.__init__(self,basename)
         self.opt_freq_key = of_basename
         self.singlepoint_key = sp_basename
+        self.debug = False
+        self.directory = directory
+        self.recursive = recursive
         if of_basename and sp_basename:
             self.set_opt_freq_node(of_basename)
             self.set_singlepoint_node(sp_basename)
@@ -141,31 +146,44 @@ class CompoundNode(ParseNode):
     #this massively expedites process of making these.
     def set_opt_freq_node(self,basename):
         of_node = ParseLeaf(basename)
+        of_node.debug = self.debug
+        if self.directory: #this will cause a problem. we'll fix it when it does
+            # print(setting directory of of node)
+            of_node.directory = os.path.join(self.directory,self.basename,basename)
         self.opt_freq_key = basename
         self.children[basename] = of_node
         return self
 
     def set_singlepoint_node(self,basename):
         sp_node = ParseLeaf(basename)
+        sp_node.debug = self.debug
+        if self.directory: #this will cause a problem. we'll fix it when it does
+            sp_node.directory = os.path.join(self.directory,self.basename,basename)
+            # print('set directory!')
         self.singlepoint_key = basename
         self.children[basename] = sp_node
         return self
     
     def parse_data(self):
+        if self.recursive:
+            self.children[self.opt_freq_key].parse_data()
+            self.children[self.singlepoint_key].parse_data()
         of_data = copy.deepcopy(self.children[self.opt_freq_key].data)
         sp_data = copy.deepcopy(self.children[self.singlepoint_key].data)
         #let's look at a data object and see what we would need to use here
         #actually this one is pretty easy
         thermal_energies = [
             ('G_au','G_minus_E_el_au'),
-            # ('H_au','H_minus_E_el_au'),
-            #('E_au','E_minus_E_el_au'),
+            ('H_au','H_minus_E_el_au'),
+            ('E_el_thermo_au','E_minus_E_el_au'),
         ]
         data = sp_data.copy()
         for energy_type in thermal_energies:
             conversion_key = energy_type[0]
             thermal_key = energy_type[1]
             data[thermal_key] = of_data.get(thermal_key,None)
+            if not data[thermal_key]:
+                data[thermal_key] = of_data[conversion_key] - of_data['E_el_au']
             electronic_energy = data.get('E_el_au',None) 
             
             if data[thermal_key] and electronic_energy:
@@ -193,8 +211,8 @@ class ThermoNode(ParseNode):
         self.percolate_keys = {} #name : list keys to percolate
         self.energy_types = kwargs.get('energy_types',[
             'G_au',
-            # 'H_au',
-            #'E_au',
+            'H_au',
+            'E_el_thermo_au',
             'E_el_au'
         ])
         #TODO: pick a better name for this?

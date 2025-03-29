@@ -160,9 +160,8 @@ def write_input_array(_configs,root_directory,**kwargs):
             job_succeeded = False #not that it should matter in this case
         else:
             job_reader.restart = True  #does this matter?
-            job_reader.update_status()
+            job_reader.update_status() #we did htis right?s
             job_reader.write_json()
-    
             if job_reader.status in ['succeeded','running','pending']:
                 job_succeeded = True
             else:

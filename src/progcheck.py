@@ -54,7 +54,10 @@ def classify_failures(ledger: pd.DataFrame, working_path: str, verbose: bool = F
     Returns:
         DataFrame with classified failure types
     """
-    fail_ledger = ledger[ledger['job_status'] == 'failed']
+    # fail_ledger = ledger[ledger['job_status'] == 'failed']
+
+    #fix bandaid changes!!!!
+    fail_ledger = ledger
     new_rows = []
     
     for i, row in fail_ledger.iterrows():
@@ -167,6 +170,13 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
             new_data.loc[i, 'outcome'] = 'scf_fail'
         elif run_data.get('bad_internals', False):
             new_data.loc[i, 'outcome'] = 'bad_internals'
+        elif not run_data.get('success_opt_freq_2',True):
+            new_data.loc[i, 'outcome'] = 'bad_stationary_point'
+        # delete this part later
+        else:
+            new_data.loc[i,'outcome'] = 'not_failed'
+
+        new_data = new_data[(new_data['outcome'] != 'not_failed')]
 
     return new_data
 
@@ -222,7 +232,9 @@ def get_outcome_statistics(data: pd.DataFrame) -> Dict:
     
     return stats
 
-def filter_by_fail(data: pd.DataFrame,fail_type: str) -> pd.DataFrame:
+
+
+def filter_by_fail(data: pd.DataFrame,fail_type: Union[str,List[str]]) -> pd.DataFrame:
     """
     Filter job outcomes by particular fail type.
 
@@ -233,7 +245,16 @@ def filter_by_fail(data: pd.DataFrame,fail_type: str) -> pd.DataFrame:
     Returns:
         DataFrame containing only fails of specified type
     """
-    return data[data['outcome'] == fail_type]
+    if isinstance(fail_type,str):
+        return data[data['outcome'] == fail_type]
+    elif isinstance(fail_type,list):
+        data_filter = data['outcome'] == fail_type[0]
+        if len(fail_type) > 1:
+            for fail in fail_type[1:]:
+                data_filter = data_filter | (data['outcome'] == fail)
+        return data[data_filter]
+
+
 
 def plot_outcomes(stats_dict, title='Computational Chemistry Job Outcomes', save_path=None, figsize=(10, 6)):
     """
@@ -256,7 +277,7 @@ def plot_outcomes(stats_dict, title='Computational Chemistry Job Outcomes', save
     
     # Define category ordering and colors
     system_failures = ['NODE_FAIL', 'TIMEOUT', 'OUT_OF_MEMORY']
-    chem_failures = ['imaginary_freq', 'opt_maxcycle', 'scf_fail', 'bad_internals']
+    chem_failures = ['imaginary_freq', 'opt_maxcycle', 'scf_fail', 'bad_internals','bad_stationary_point']
     other_failures = ['FAILED', 'OTHER', 'NO_SLURM_OUTPUT']
     
     # Create ordered lists for plotting
