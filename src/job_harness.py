@@ -368,7 +368,7 @@ class GaussianHarness(JobHarness):
             print('################')
             print('parsing finally!')
             print('################')
-            self.extract_final_coordinates()
+            self.extract_final_coordinates() 
 
     @property
     def output_path(self):
@@ -388,7 +388,7 @@ class GaussianHarness(JobHarness):
                 lines = f.readlines()
             
             # Find the last occurrence of Standard orientation
-            standard_orientation_indices = [i for i, line in enumerate(lines) if "Input orientation" in line]
+            standard_orientation_indices = [i for i, line in enumerate(lines) if ("Input orientation" in line) or ("Standard orientation" in line)]
             
             if not standard_orientation_indices:
                 print(f"No standard orientation section found in {output_path}")

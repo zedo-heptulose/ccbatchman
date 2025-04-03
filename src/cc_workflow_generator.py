@@ -23,7 +23,7 @@ DEFAULT_GLOBAL_CONFIG = {
 DEFAULT_CREST_CONFIG = {
     "program": "CREST",
     "functional": "gfn2",
-    "noreftopo": True,
+    "noreftopo": False,
     "runtime": "0-12:00:00",
 }
 
@@ -45,6 +45,20 @@ DEFAULT_GAUSSIAN_OPTFREQ_CONFIG = {
     "program": "Gaussian",
     "other_keywords": ["NoSymm", "Int=Ultrafine"],
     "run_type": "OPT FREQ",
+}
+
+DEFAULT_GAUSSIAN_NICS_PREPROCESSING_CONFIG = {
+    'num_cores' : 1,
+    'mem_per_cpu_GB' : 3,
+    'runtime' : '0-00:05:00',
+    'program'  : 'pyAroma',
+    'cc_program' : 'Gaussian',
+}
+
+DEFAULT_GAUSSIAN_NICS_CONFIG = {
+    "program": "Gaussian",
+    "other_keywords": ["Int=Ultrafine"],
+    "run_type": "NMR=GIAO",
 }
 
 DEFAULT_XTB_OPTFREQ_CONFIG = {
@@ -441,7 +455,70 @@ class WorkflowGenerator:
         self.workflow[name] = gaussian_config
         return self
 
-                
+    
+    def add_gaussian_nics_step(self, name: str, functional: str, basis: str,
+                       dispersion: str = None, config_overrides: Dict = None,
+                       coords_source: str = None,xyz_filename=None, preprocessing_name: str = None) -> 'WorkflowGenerator':
+        """
+        Add an Gaussian NICS calculation step.
+        
+        Parameters:
+            name (str): Name for this step
+            functional (str): DFT functional name
+            basis (str): Basis set name
+            dispersion (str): Dispersion correction (e.g., 'D3', 'D4')
+            config_overrides (dict): Settings to override defaults
+            coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file for use with coords_source
+            preprocessing_name (str): Name for preprocessing step 
+            
+        Returns:
+            self: For method chaining
+        """
+        # set up preprocessing step
+        nics_preprocessing_config = copy.deepcopy(DEFAULT_GAUSSIAN_NICS_PREPROCESSING_CONFIG)
+    
+        # coords actually have to go to this instead of the run itself
+        # this adds the ghost atoms Gaussian will use to calculate NICS values
+        if coords_source:
+            nics_preprocessing_config["!coords_from"] = f"../{coords_source}"
+            if xyz_filename:
+                nics_preprocessing_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                nics_preprocessing_config["!xyz_file"] = f"crest_best.xyz"
+            else:
+                nics_preprocessing_config["!xyz_file"] = f"{coords_source}.xyz"
+    
+        # set name used for this run, also for xyz file it generates
+        if not preprocessing_name:
+            preprocessing_name = "gaussian_nics_preprocessing"
+            
+        self.workflow[preprocessing_name] = nics_preprocessing_config
+        
+        gaussian_config = copy.deepcopy(DEFAULT_GAUSSIAN_NICS_CONFIG)
+        
+        # Set the functional, basis, and dispersion
+        gaussian_config["functional"] = functional
+        gaussian_config["basis"] = basis
+        
+        if dispersion:
+            gaussian_config["dispersion_correction"] = dispersion
+        
+        
+        # Override with any user settings
+        if config_overrides:
+            gaussian_config.update(config_overrides)
+    
+        # set coordinate source for actual run to coords from preprocessing step
+        gaussian_config["!coords_from"] = f"../{preprocessing_name}"
+        # pretty sure this should work, will need testing
+        gaussian_config["!xyz_file"] = f"{preprocessing_name}.xyz"
+            
+        self.workflow[name] = gaussian_config
+    
+        return self
+
+    
     def split_theory_name(self,theory):
         """
         Function used for processing str or tuple level of theory specifications
@@ -469,13 +546,17 @@ class WorkflowGenerator:
                        optfreq_basis_sets: List[Union[str,tuple]] = None,
                        sp_functionals: List[Union[str,tuple]] = None,
                        sp_basis_sets: List[Union[str,tuple]] = None,
+                       nics_functionals: List[Union[str,tuple]] = None,
+                       nics_basis_sets: List[Union[str,tuple]] = None,
                        program: str = "ORCA",
                        optfreq_program: str = None,
-                       sp_program: str = None,
+                       sp_program: str = "ORCA",
+                       nics_program: str = "Gaussian",
                        do_crest: bool = True,
                        crest_overrides: Dict = None,
                        optfreq_overrides: Dict = None,
                        sp_overrides: Dict = None,
+                       nics_overrides: Dict = None,
                        name_suffix: str = None,
                         ) -> 'WorkflowGenerator':
         """
@@ -491,6 +572,7 @@ class WorkflowGenerator:
             program (str): Program to use ('ORCA', 'Gaussian', or 'XTB')
             optfreq_program: Program to use for optimization + frequency step
             sp_program: Program to use for singlepoint step
+            nics_program: Program to use for NICS step
             do_crest (bool): Whether to include a CREST conformer search step
             crest_overrides (dict): Settings to override CREST defaults
             optfreq_overrides (dict): Settings to override optfreq defaults
@@ -578,7 +660,26 @@ class WorkflowGenerator:
                         )
                     else:
                         raise ValueError('singlepoint requested for program other than ORCA')
-        
+                        
+            # add NICS calculations for this geometry
+            if nics_functionals and nics_basis_sets:
+                for nics_func, nics_basis in itertools.product(nics_functionals, nics_basis_sets):
+                    nics_func_name,nics_func = self.split_theory_name(nics_func)
+                    nics_basis_name,nics_basis = self.split_theory_name(nics_basis)
+                    nics_name = f"{nics_func_name}_{nics_basis_name}_NICS_{functional_name}_{basis_name}"
+
+                    if name_suffix:
+                        nics_name += f"_{name_suffix}"
+
+                    if nics_program.upper() == "GAUSSIAN":
+                        self.add_gaussian_nics_step( 
+                            nics_name, nics_func, nics_basis,
+                            config_overrides=nics_overrides,
+                            coords_source=optfreq_name
+                        )
+                    else:
+                        raise ValueError('NICS calculation only available for Gaussian')
+                    
         return self
     
     def _modify_workflow_for_atoms(self, workflow):
@@ -687,84 +788,4 @@ class WorkflowGenerator:
             "uks": uks,
             "broken_symmetry" : broken_symmetry,
         }
-
-
-
-    
-    # def create_standard_workflow(self, optfreq_functional: str,
-    #                            sp_functional: str = None, sp_basis: str = None,
-    #                            program: str = "ORCA", name: str = "",
-    #                            optfreq_basis: str = None, optfreq_dispersion: str = None,
-    #                            sp_dispersion: str = None,
-    #                            include_crest: bool = True,
-    #                            crest_overrides: Dict = None,
-    #                            optfreq_overrides: Dict = None,
-    #                            sp_overrides: Dict = None) -> 'WorkflowGenerator':
-    #     """
-    #     Create a standard computational chemistry workflow: CREST → OptFreq → SinglePoint.
-        
-    #     Parameters:
-    #         optfreq_functional (str): Functional for geometry optimization and frequencies
-    #         sp_functional (str): Functional for single point energy (optional)
-    #         sp_basis (str): Basis set for single point energy (optional, required if sp_functional provided)
-    #         program (str): Program to use ('ORCA', 'Gaussian', or 'XTB')
-    #         name (str): Base name for the method steps
-    #         optfreq_basis (str): Basis set for geometry optimization (for some methods)
-    #         optfreq_dispersion (str): Dispersion correction for geometry optimization
-    #         sp_dispersion (str): Dispersion correction for single point
-    #         include_crest (bool): Whether to include a CREST conformer search step
-    #         crest_overrides (dict): Settings to override CREST defaults
-    #         optfreq_overrides (dict): Settings to override optfreq defaults
-    #         sp_overrides (dict): Settings to override single point defaults
-            
-    #     Returns:
-    #         self: For method chaining
-    #     """
-    #     # Add CREST if requested
-    #     if include_crest:
-    #         crest_name = f"crest_{name}" if name else "crest"
-    #         self.add_crest_step(crest_name, crest_overrides)
-    #         coords_source = crest_name
-    #     else:
-    #         coords_source = None
-        
-    #     # Add geometry optimization and frequency calculation
-    #     optfreq_name = f"{optfreq_functional.lower().replace('-', '_')}_{name}_opt_freq" if name else f"{optfreq_functional.lower().replace('-', '_')}_opt_freq"
-        
-    #     if program.upper() == "ORCA":
-    #         self.add_orca_optfreq_step(
-    #             optfreq_name, optfreq_functional,
-    #             basis=optfreq_basis, dispersion=optfreq_dispersion,
-    #             config_overrides=optfreq_overrides,
-    #             coords_source=coords_source
-    #         )
-    #     elif program.upper() == "GAUSSIAN":
-    #         # optfreq_name += '_gaussian'
-    #         self.add_gaussian_optfreq_step(
-    #             optfreq_name, optfreq_functional, 
-    #             basis=sp_basis if optfreq_basis is None else optfreq_basis,
-    #             config_overrides=optfreq_overrides,
-    #             coords_source=coords_source
-    #         )
-    #     elif program.upper() == "XTB":
-    #         self.add_xtb_optfreq_step(
-    #             optfreq_name,
-    #             config_overrides=optfreq_overrides,
-    #             coords_source=coords_source
-    #         )
-    #     else:
-    #         raise ValueError(f"Unsupported program: {program}")
-        
-    #     # Add single point calculation if requested
-    #     if sp_functional and sp_basis:
-    #         sp_name = f"{sp_functional.lower().replace('-', '_')}_{sp_basis.lower().replace('-', '_')}_{name}_sp" if name else f"{sp_functional.lower().replace('-', '_')}_{sp_basis.lower().replace('-', '_')}_sp"
-            
-    #         self.add_orca_sp_step(
-    #             sp_name, sp_functional, sp_basis,
-    #             dispersion=sp_dispersion,
-    #             config_overrides=sp_overrides,
-    #             coords_source=optfreq_name
-    #         )
-        
-    #     return self
 

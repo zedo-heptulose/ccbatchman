@@ -237,6 +237,24 @@ class BatchRunner:
     def flag_broken_dependencies(self,**kwargs):
         self.ledger.loc[self.broken_dependency_mask(),'job_status'] = 'broken_dependency'
 
+    def final_parse_dependency(self,row,**kwargs):
+        print('new functionality: running final parse on old job')
+        if not isinstance(row['coords_from'],str):
+            return
+        old_directory = os.path.abspath( 
+        		os.path.join(
+        			row['job_directory'],
+        			row['coords_from']
+        		)
+        	)
+        old_row = self.ledger[self.ledger['job_directory'] == old_directory].iloc[0]
+        old_job = self.create_job_harness(old_row['program'])
+        old_job.job_name = os.path.basename(row['coords_from'])
+        #jobs in directory with their basename, and their files have this basename
+        old_job.directory = old_directory
+        if self.debug: print(f"old job directory set to {old_job.directory}")
+        old_job.final_parse()
+
     def queue_new_jobs(self,**kwargs):
         running_mask = (self.ledger['job_status'] == 'running') |\
                        (self.ledger['job_status'] == 'pending') 
@@ -252,34 +270,54 @@ class BatchRunner:
                 job = self.create_job_harness(not_started_jobs.iloc[i]['program'])
                 
                 job.job_name = not_started_jobs.iloc[i]['job_basename']
+                
                 #jobs in directory with their basename, and their files have this basename
                 job.directory = not_started_jobs.iloc[i]['job_directory']
                 if self.debug: print(f"directory set to {job.directory}")
-                
-                self.transfer_coords(not_started_jobs.iloc[i],job)
-               
-                #try:
-                job.check_success_static() #so this didn't work?
-                job.write_json()
-                #except:
-                #    print(f"error for job: {job.directory} {job.job_name}")
-                #    print("job.check_success_static() failed, check that output exists")
 
+                # we do this as a hotfix, it's for an edge case that won't exist in the future
+                self.final_parse_dependency(not_started_jobs.iloc[i]) #new functionality           
+                self.transfer_coords(not_started_jobs.iloc[i],job)
+                # this can eventually be removed, maybe? 
+                # if this is slowing the program down substantially, it should be
+               
+                job.update_status() #this was changed, ensure desired behavior!
+                job.write_json()
+                
                 if job.status == 'succeeded':
-                    job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.directory) if re.search(r'slurm-\d+.out',fn)])
+                    # job.job_id = max([int(re.search(r'\d+',fn).group(0)) for fn in os.listdir(job.directory) if re.search(r'slurm-\d+.out',fn)]) this doesn't need to be here any more
+                    print("////////////////////////////////////////////////////////")
+                    print("OLD JOB SUCCEEDED")
+                    print(f"job name: {job.job_name}")
+                    print(f"job directory: {job.directory}")
+                    print("////////////////////////////////////////////////////////")
                 
                 elif job.status == 'failed':
                     print("////////////////////////////////////////////////////////")
-                    print("WARNING: JOB ALREADY FAILED")
+                    print("OLD JOB FAILED")
                     print(f"job name: {job.job_name}")
                     print(f"job directory: {job.directory}")
                     print("////////////////////////////////////////////////////////")
 
                 elif job.status =='not_started':
+                    print("////////////////////////////////////////////////////////")
+                    print("OLD JOB NOT STARTED, SUBMITTING")
+                    print(f"job name: {job.job_name}")
+                    print(f"job directory: {job.directory}")
+                    print("////////////////////////////////////////////////////////")
                     job.submit_job()
+
+                elif job.status in ['running','pending']:
+                    print("////////////////////////////////////////////////////////")
+                    print("OLD JOB RUNNING OR PENDING")
+                    print(f"job name: {job.job_name}")
+                    print(f"job directory: {job.directory}")
+                    print("////////////////////////////////////////////////////////")
+                
                 else:
                     raise ValueError(f"check_success_static() returned unexpected value: {job.status}")
 
+                
                 ledger_index = not_started_jobs.index[i]
                 if self.debug: print(f"job id: {job.job_id}")
                 self.ledger.loc[ledger_index,'job_id'] = job.job_id
@@ -360,10 +398,6 @@ class BatchRunner:
         return self
     
     def restart_job_harnesses(self,**kwargs):
-        #this is a bad way to do this and causes issues, presently.
-        #would rather just update job status on a case by case basis...
-        
-        #TODO: check if this caused any issues
         current_job_mask = (self.ledger['job_id'] != -1) & (self.ledger['job_status'] != 'succeeded') & (self.ledger['job_status'] != 'failed')
         
         for index, row in self.ledger[current_job_mask].iterrows():

@@ -22,7 +22,7 @@
   "uks": true,
   "functional": "gfn2",
   "solvent" : null,
-  "cluster" : true,
+  "cluster" : false,
   "quick" : false,
   "reopt" : false,
   "noreftopo" : false,

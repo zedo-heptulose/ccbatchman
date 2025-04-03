@@ -55,7 +55,7 @@ def classify_failures(ledger: pd.DataFrame, working_path: str, verbose: bool = F
         DataFrame with classified failure types
     """
     # fail_ledger = ledger[ledger['job_status'] == 'failed']
-
+# 
     #fix bandaid changes!!!!
     fail_ledger = ledger
     new_rows = []
@@ -78,7 +78,7 @@ def classify_failures(ledger: pd.DataFrame, working_path: str, verbose: bool = F
             status_line = result.stdout.split('\n')[3] if len(result.stdout.split('\n')) > 3 else ""
             
             if 'COMPLETED' in status_line:
-                outcome = 'FAILED'  # Completed but marked as failed in ledger
+                outcome = 'FAILED' 
             elif 'NODE_FAIL' in status_line:
                 outcome = 'NODE_FAIL'
             elif 'TIMEOUT' in status_line:
@@ -132,25 +132,25 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
     for i, row in new_data.iterrows():
         base_path = os.path.join(working_path, row['system'], row['method'], row['method'])
         
-        # Try to find and parse output file
-        out_path = f"{base_path}.out"
-        if os.path.exists(out_path):
-            # ORCA output
-            output = file_parser.extract_data(
-                out_path, 
-                '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/orca_rules.dat'
-            )
-        else:
-            # Gaussian output
-            out_path = f"{base_path}.log"
-            if os.path.exists(out_path):
-                output = file_parser.extract_data(
-                    out_path, 
-                    '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/gaussian_rules.dat'
-                )
-            else:
-                # No output file found
-                continue
+        # # Try to find and parse output file
+        # out_path = f"{base_path}.out"
+        # if os.path.exists(out_path):
+        #     # ORCA output
+        #     output = file_parser.extract_data(
+        #         out_path, 
+        #         '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/orca_rules.dat'
+        #     )
+        # else:
+        #     # Gaussian output
+        #     out_path = f"{base_path}.log"
+        #     if os.path.exists(out_path):
+        #         output = file_parser.extract_data(
+        #             out_path, 
+        #             '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/gaussian_rules.dat'
+        #         )
+        #     else:
+        #         # No output file found
+        #         continue
         
         # Save parsed data as JSON
         json_path = f"{base_path}.json"
@@ -160,7 +160,14 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
         # Load JSON to analyze errors
         with open(json_path, 'r') as json_file:
             run_data = json.load(json_file)
-            
+    
+        if run_data.get('success_opt_freq_2',None) is not None and not run_data.get('success_opt_freq_2',None):
+            print('success opt freq...')
+            print(run_data.get('success_opt_freq_2',True))
+            print(row['system'])
+            print(run_data)
+        
+        
         # Categorize specific error types
         if run_data.get('imaginary_frequencies', False):
             new_data.loc[i, 'outcome'] = 'imaginary_freq'
