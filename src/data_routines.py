@@ -279,7 +279,7 @@ class ComputationalDataProcessor:
         errors = np.array(outer_list)
         
         # Create the heatmap
-        plt.figure(figsize=(10, 8))
+        plt.figure(figsize=(7, 5))
         im = plt.imshow(errors, cmap=cmap, aspect='equal')
         
         plt.clim(0, vmax)
@@ -308,6 +308,120 @@ class ComputationalDataProcessor:
             
         return plt.gcf()
 
+    def analyze_bde_dataframe(self,bond_type,molecule_data,energy_data,
+                             solvent='water',title=None,
+                             ylim=(0,120), save_path=None,
+                              debug=False):
+        if title is None:
+            title = f"{bond_type} Bond Dissociation Energies | {sp_dir}//{of_dir}"
+            
+        plt.figure(figsize=(10, 6))
+
+        if not solvent:
+            solvent = 'gas'
+
+        outer_molecule_list = []
+        outer_df_list = []
+        for data in molecule_data:
+            df_list = []
+            middle_molecule_list = []
+            for i in range(0, 8):
+                reaction_name = 'scratch'
+                if i < 7:
+                    if bond_type == 'C-C':
+                        products = {
+                            f"_{solvent}_{data[1]}_{data[0]}_CF2_{i}_CF2": 1,
+                            f"_{solvent}_{data[2]}_CF3_CF2_{6-i}": 1,
+                        }
+                        reactants = {
+                            f"_{solvent}_{data[3]}_{data[0]}_CF2_{7}_CF3": 1,
+                        }
+                    elif bond_type == 'C-F':
+                        products = {
+                            f"_{solvent}_{data[1]}_{data[0]}_CF2_{i}_CF_CF2_{6-i}_CF3": 1,
+                            "_water_0_2_f": 1,
+                        }
+                        reactants = {
+                            f"_{solvent}_{data[3]}_{data[0]}_CF2_{7}_CF3": 1,
+                        }
+                    else:
+                        raise ValueError(f"Unsupported bond type: {bond_type}")
+                elif i == 7:
+                    if bond_type == 'C-C':
+                        break
+                    if bond_type == 'C-F':
+                        products = {
+                            f"_{solvent}_{data[1]}_{data[0]}_CF2_7_CF2": 1,
+                            "_water_0_2_f": 1,
+                        }
+                        reactants = {
+                            f"_{solvent}_{data[3]}_{data[0]}_CF2_7_CF3": 1,
+                        }
+                    else:
+                        pass
+
+                reactants_G = 0
+                reactants_H = 0
+                reactants_Esp = 0
+                for species in reactants.keys():
+                    if len(energy_data[energy_data['molecule'] == species]) == 0:
+                        print(f'not found in dataframe: {species}')
+                    G  = energy_data[energy_data['molecule'] == species]['G (kcal/mol)'].iloc[0]
+                    H  = energy_data[energy_data['molecule'] == species]['H (kcal/mol)'].iloc[0]
+                    Esp= energy_data[energy_data['molecule'] == species]['E (singlepoint) (kcal/mol)'].iloc[0]
+                    reactants_G += G
+                    reactants_H += H
+                    reactants_Esp += Esp
+    
+                products_G = 0
+                products_H = 0 
+                products_Esp = 0
+                for species in products.keys():
+                    if len(energy_data[energy_data['molecule'] == species]) == 0:
+                        print(f'not found in dataframe: {species}')
+                    G  = energy_data[energy_data['molecule'] == species]['G (kcal/mol)'].iloc[0]
+                    H  = energy_data[energy_data['molecule'] == species]['H (kcal/mol)'].iloc[0]
+                    Esp= energy_data[energy_data['molecule'] == species]['E (singlepoint) (kcal/mol)'].iloc[0]
+                    products_G += G
+                    products_H += H
+                    products_Esp += Esp
+
+                reaction_DeltaG   = products_G - reactants_G
+                reaction_DeltaH   = products_H - reactants_H
+                reaction_DeltaEsp = products_Esp - reactants_Esp
+
+                bond_index = i + 1
+                df_temp = pd.DataFrame({
+                    f'{bond_type.lower()}_bond': [bond_index],
+                    'Delta G (kcal/mol)': [reaction_DeltaG],
+                    'Delta H (kcal/mol)' : [reaction_DeltaH],
+                    'Delta E (singlepoint) (kcal/mol)' : [reaction_DeltaEsp],
+                    'head_frag': [f"{data[0]}_{data[3]}"],
+                })
+                df_list.append(df_temp)
+                
+            df = pd.concat(df_list)
+            
+            x = df[f'{bond_type.lower()}_bond']
+            y = df['Delta G (kcal/mol)']
+            plt.plot(x, y, label=df['head_frag'].iloc[0].replace('_', ' '))
+
+        plt.title(title)
+        plt.ylabel('Delta G (kcal/mol)')
+        plt.xlabel('Bond index')
+        plt.ylim(ylim)
+        plt.legend()
+        
+        if save_path:
+            if save_path.endswith('/'):
+                # Create a filename based on the title
+                filename = re.sub(r'[^+0-9A-Za-z]', '', title).lower()
+                save_path = f"{save_path}{filename}.png"
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
+            
+
+    
     def analyze_bond_dissociation(self, bond_type, molecule_data, of_dir, sp_dir,
                                   solvent='water',title=None, 
                                   ylim=(0, 120), save_path=None,

@@ -363,12 +363,13 @@ class GaussianHarness(JobHarness):
         """Extract final coordinates from successful optimization job"""
         with open(os.path.join(self.directory,'job_config.json'),'r') as json_file:
             data = json.load(json_file)
-            
-        if 'opt' in data['run_type'].lower(): 
-            print('################')
-            print('parsing finally!')
-            print('################')
-            self.extract_final_coordinates() 
+
+        if data['run_type']:
+            if 'opt' in data['run_type'].lower(): 
+                print('################')
+                print('parsing finally!')
+                print('################')
+                self.extract_final_coordinates() 
 
     @property
     def output_path(self):

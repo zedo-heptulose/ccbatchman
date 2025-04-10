@@ -133,31 +133,33 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
         base_path = os.path.join(working_path, row['system'], row['method'], row['method'])
         
         # # Try to find and parse output file
-        # out_path = f"{base_path}.out"
-        # if os.path.exists(out_path):
-        #     # ORCA output
-        #     output = file_parser.extract_data(
-        #         out_path, 
-        #         '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/orca_rules.dat'
-        #     )
-        # else:
-        #     # Gaussian output
-        #     out_path = f"{base_path}.log"
-        #     if os.path.exists(out_path):
-        #         output = file_parser.extract_data(
-        #             out_path, 
-        #             '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/gaussian_rules.dat'
-        #         )
-        #     else:
-        #         # No output file found
-        #         continue
+        out_path = f"{base_path}.out"
+        if os.path.exists(out_path):
+            # ORCA output
+            output = file_parser.extract_data(
+                out_path, 
+                '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/orca_rules.dat'
+            )
+        else:
+            # Gaussian output
+            out_path = f"{base_path}.log"
+            if os.path.exists(out_path):
+                output = file_parser.extract_data(
+                    out_path, 
+                    '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/gaussian_rules.dat'
+                )
+            else:
+                # No output file found
+                continue
         
-        # Save parsed data as JSON
+        # # Save parsed data as JSON
+        
         json_path = f"{base_path}.json"
         with open(json_path, 'w') as json_file:
             json.dump(output, json_file, indent=6)
             
         # Load JSON to analyze errors
+    
         with open(json_path, 'r') as json_file:
             run_data = json.load(json_file)
     

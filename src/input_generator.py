@@ -617,7 +617,7 @@ class CRESTInputBuilder(InputBuilder):
         command = self.config['path_to_program']
         basename = self.config['job_basename']
         xyz_file = self.config['xyz_file']
-        
+
         options = []
         if self.config['functional'] in ['gfn2','gfn0','gfnff','gfn2//gfnff']:
             options.append(f"--{self.config['functional']}")

@@ -43,8 +43,14 @@ DEFAULT_ORCA_SP_CONFIG = {
 
 DEFAULT_GAUSSIAN_OPTFREQ_CONFIG = {
     "program": "Gaussian",
-    "other_keywords": ["NoSymm", "Int=Ultrafine"],
+    "other_keywords": ["Int=Ultrafine"],
     "run_type": "OPT FREQ",
+}
+
+DEFAULT_GAUSSIAN_SP_CONFIG = {
+    "program": "Gaussian",
+    "other_keywords": ["Int=Ultrafine"],
+    "run_type": None,
 }
 
 DEFAULT_GAUSSIAN_NICS_PREPROCESSING_CONFIG = {
@@ -455,6 +461,48 @@ class WorkflowGenerator:
         self.workflow[name] = gaussian_config
         return self
 
+
+    def add_gaussian_sp_step(self, name: str, functional: str, basis: str,
+                       config_overrides: Dict = None,
+                       coords_source: str = None,xyz_filename=None) -> 'WorkflowGenerator':
+        """
+        Add a Gaussian single point calculation step.
+        
+        Parameters:
+            name (str): Name for this step
+            functional (str): DFT functional name
+            basis (str): Basis set name
+            config_overrides (dict): Settings to override defaults
+            coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file for use with coords_source
+            
+        Returns:
+            self: For method chaining
+        """
+        gaussian_config = copy.deepcopy(DEFAULT_GAUSSIAN_SP_CONFIG)
+        
+        # Set the functional, basis, and dispersion
+        gaussian_config["functional"] = functional
+        gaussian_config["basis"] = basis
+        
+        # Set coordinate source if provided
+        if coords_source:
+            gaussian_config["!coords_from"] = f"../{coords_source}"
+            if xyz_filename:
+                gaussian_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                gaussian_config["!xyz_file"] = f"crest_best.xyz"
+            else:
+                gaussian_config["!xyz_file"] = f"{coords_source}.xyz"
+                
+        # Override with any user settings
+        if config_overrides:
+            gaussian_config.update(config_overrides)
+        
+        self.workflow[name] = gaussian_config
+        return self
+
+    
     
     def add_gaussian_nics_step(self, name: str, functional: str, basis: str,
                        dispersion: str = None, config_overrides: Dict = None,
@@ -658,8 +706,15 @@ class WorkflowGenerator:
                             config_overrides=sp_overrides,
                             coords_source=optfreq_name
                         )
+                    elif sp_program.upper() == "GAUSSIAN":
+                        sp_name += '_gaussian'
+                        self.add_gaussian_sp_step(
+                            sp_name, sp_func, sp_basis,
+                            config_overrides=sp_overrides,
+                            coords_source=optfreq_name
+                        )
                     else:
-                        raise ValueError('singlepoint requested for program other than ORCA')
+                        raise ValueError('singlepoint requested for program other than ORCA or Gaussian')
                         
             # add NICS calculations for this geometry
             if nics_functionals and nics_basis_sets:
@@ -681,6 +736,234 @@ class WorkflowGenerator:
                         raise ValueError('NICS calculation only available for Gaussian')
                     
         return self
+
+
+
+###################################################333
+
+
+    # bs function
+
+
+
+################################################3
+
+
+
+
+
+    def create_diradical_workflow(self, 
+                       optfreq_functionals: List[Union[str,tuple]] = None,
+                       optfreq_basis_sets: List[Union[str,tuple]] = None,
+                       sp_functionals: List[Union[str,tuple]] = None,
+                       sp_basis_sets: List[Union[str,tuple]] = None,
+                       nics_functionals: List[Union[str,tuple]] = None,
+                       nics_basis_sets: List[Union[str,tuple]] = None,
+                       program: str = "ORCA",
+                       optfreq_program: str = None,
+                       sp_program: str = "ORCA",
+                       nics_program: str = "Gaussian",
+                       do_crest: bool = True,
+                       crest_overrides: Dict = None,
+                       optfreq_overrides: Dict = None,
+                       sp_overrides: Dict = None,
+                       nics_overrides: Dict = None,
+                       name_suffix: str = None,
+                        ) -> 'WorkflowGenerator':
+        """
+        Create multiple workflows using cartesian product of functionals/basis sets.
+        
+        Parameters:
+            optfreq_functionals (list): List of functionals for geometry optimization
+            optfreq_basis_sets (list): List of basis sets for geometry optimization
+            sp_functionals (list): List of functionals for single point energy 
+            sp_basis_sets (list): List of basis sets for single point energy
+                all of functional/basis sets can be given as tuple (name,functional)
+                or as str "functional" within list
+            program (str): Program to use ('ORCA', 'Gaussian', or 'XTB')
+            optfreq_program: Program to use for optimization + frequency step
+            sp_program: Program to use for singlepoint step
+            nics_program: Program to use for NICS step
+            do_crest (bool): Whether to include a CREST conformer search step
+            crest_overrides (dict): Settings to override CREST defaults
+            optfreq_overrides (dict): Settings to override optfreq defaults
+            sp_overrides (dict): Settings to override single point defaults
+            
+        Returns:
+            self: For method chaining
+        """
+        optfreq_program = optfreq_program if optfreq_program else program
+        sp_program = sp_program if sp_program else program
+        
+        # Add CREST if requested
+        
+        if do_crest:
+            self.add_crest_step("crest", crest_overrides)
+            coords_source = "crest"
+        else:
+            coords_source = None
+        
+        # Default to lists with one element if not provided
+        if not optfreq_functionals:
+            optfreq_functionals = ["r2SCAN-3c"]
+        
+        if not optfreq_basis_sets:
+            optfreq_basis_sets = [None]  # None for compound methods like r2SCAN-3c
+        
+        # Add geometry optimization and frequency calculations
+        for functional, basis in itertools.product(optfreq_functionals, optfreq_basis_sets):
+            # Skip None basis for functionals that require a basis
+            if basis is None and not (functional.endswith("-3c") or functional.endswith("-2c")):
+                continue
+
+            functional_name,functional = self.split_theory_name(functional)
+            basis_name, basis = self.split_theory_name(basis)
+
+            optfreq_name = f"{functional_name}"
+            if basis:
+                optfreq_name += f"_{basis_name}"
+            optfreq_name += "_opt_freq"
+
+            if name_suffix:
+                optfreq_name += f"_{name_suffix}"
+                
+            if optfreq_program.upper() == "ORCA":
+                self.add_orca_optfreq_step(
+                    optfreq_name, functional,
+                    basis=basis,
+                    config_overrides=optfreq_overrides,
+                    coords_source=coords_source
+                )
+            elif optfreq_program.upper() == "GAUSSIAN":
+                optfreq_name += '_gaussian'
+                self.add_gaussian_optfreq_step(
+                    optfreq_name, functional, 
+                    basis=basis or "6-31G(d,p)",  # Default for Gaussian
+                    config_overrides=optfreq_overrides,
+                    coords_source=coords_source
+                )
+            elif optfreq_program.upper() == "XTB":
+                self.add_xtb_optfreq_step(
+                    optfreq_name,
+                    config_overrides=optfreq_overrides,
+                    coords_source=coords_source
+                )
+            else:
+                raise ValueError(f"Invalid program specified for opt/freq step: {optfreq_program}")
+            
+            # Add single point calculations for this geometry
+            if sp_functionals and sp_basis_sets:
+                for sp_func, sp_basis in itertools.product(sp_functionals, sp_basis_sets):
+                    sp_func_name,sp_func = self.split_theory_name(sp_func)
+                    sp_basis_name,sp_basis = self.split_theory_name(sp_basis)
+                    sp_name = f"{sp_func_name}_{sp_basis_name}_sp_{functional_name}_{basis_name}"
+                    
+                    if name_suffix:
+                        sp_name += f"_{name_suffix}"
+                        #we use this verbose naming convention because ah... life easy
+                        #we're fine just using ORCA for singlepoints at the moment, I don't
+                        #mind that.
+                    if sp_program.upper() == "ORCA":
+                        ####singlet sp
+                        overrides = {
+                            'charge': 0,
+                            'spin_multiplicity' : 3,
+                            'broken_symmetry' : True,
+                        }
+                        sp_overrides.update(overrides)
+                        singlet_sp_name = sp_name+'_singlet'
+                        self.add_orca_sp_step( 
+                            singlet_sp_name, sp_func, sp_basis,
+                            config_overrides=sp_overrides,
+                            coords_source=optfreq_name
+                        )
+                        ####triplet sp
+                        overrides = {
+                            'charge': 0,
+                            'spin_multiplicity' : 3,
+                            'broken_symmetry' : False,
+                        }
+                        sp_overrides.update(overrides)
+                        triplet_sp_name = sp_name+'_triplet'
+                        self.add_orca_sp_step( 
+                            triplet_sp_name, sp_func, sp_basis,
+                            config_overrides=sp_overrides,
+                            coords_source=optfreq_name
+                        )
+                        
+                    elif sp_program.upper() == "GAUSSIAN":
+                        ####singlet sp
+                        overrides = {
+                            'charge': 0,
+                            'spin_multiplicity' : 1,
+                            'broken_symmetry' : True,
+                        }
+                        sp_overrides.update(overrides)
+                        singlet_sp_name = sp_name+'_singlet'
+                        singlet_sp_name += '_gaussian'
+                        self.add_gaussian_sp_step(
+                            singlet_sp_name, sp_func, sp_basis,
+                            config_overrides=sp_overrides,
+                            coords_source=optfreq_name
+                        )
+                        ####triplet sp
+                        overrides = {
+                            'charge': 0,
+                            'spin_multiplicity' : 3,
+                            'broken_symmetry' : False,
+                        }
+                        sp_overrides.update(overrides)
+                        triplet_sp_name = sp_name+'_triplet'
+                        triplet_sp_name += '_gaussian'
+                        self.add_gaussian_sp_step(
+                            triplet_sp_name, sp_func, sp_basis,
+                            config_overrides=sp_overrides,
+                            coords_source=optfreq_name
+                        )
+                    
+                    else:
+                        raise ValueError('singlepoint requested for program other than ORCA or Gaussian')
+                        
+            # add NICS calculations for this geometry
+            if nics_functionals and nics_basis_sets:
+                for nics_func, nics_basis in itertools.product(nics_functionals, nics_basis_sets):
+                    nics_func_name,nics_func = self.split_theory_name(nics_func)
+                    nics_basis_name,nics_basis = self.split_theory_name(nics_basis)
+                    nics_name = f"{nics_func_name}_{nics_basis_name}_NICS_{functional_name}_{basis_name}"
+
+                    if name_suffix:
+                        nics_name += f"_{name_suffix}"
+
+                    if nics_program.upper() == "GAUSSIAN":
+                        self.add_gaussian_nics_step( 
+                            nics_name, nics_func, nics_basis,
+                            config_overrides=nics_overrides,
+                            coords_source=optfreq_name
+                        )
+                    else:
+                        raise ValueError('NICS calculation only available for Gaussian')
+                    
+        return self
+    
+
+
+    ###############################################
+
+    #    HIDDEN FUNCTIONS
+
+
+    ###############################################
+
+
+
+
+
+
+
+
+
+
+
     
     def _modify_workflow_for_atoms(self, workflow):
         """
