@@ -436,6 +436,8 @@ class GaussianPostProcessor:
                 s_squared = float(match.group(1))
                 if s_squared == -0.0:
                     s_squared = 0.0
+                if s_squared < 0:
+                    raise ValueError('negative <S**2>!')
                 self.data['<S**2>'] = s_squared 
                 # print(line)
                 # print(s_squared)
