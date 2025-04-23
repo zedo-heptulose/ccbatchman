@@ -425,6 +425,7 @@ class ComputationalDataProcessor:
     def analyze_bond_dissociation(self, bond_type, molecule_data, of_dir, sp_dir,
                                   solvent='water',title=None, 
                                   ylim=(0, 120), save_path=None,
+                                  ignore=None,
                                  debug=False):
         """
         Analyze and visualize bond dissociation energies.
@@ -500,9 +501,20 @@ class ComputationalDataProcessor:
                         pass
                     
                 molecule_energy_list = []
+                if len(data) == 5 :
+                    suffix = data[4]
+                else:
+                    suffix = ''
+                temp_sp_dir = sp_dir + suffix
+                temp_of_dir = of_dir + suffix
+                ignore_reaction = False
                 for species in {**reactants, **products}.keys():
+                    if ignore:
+                        if species in ignore:
+                            ignore_reaction = True
+                            continue
                     #parse energies
-                    pnode = parse_tree.CompoundNode(species,of_dir,sp_dir,self.root_dir,recursive=True)
+                    pnode = parse_tree.CompoundNode(species,temp_of_dir,temp_sp_dir,self.root_dir,recursive=True)
                     # pnode.debug = True
                     pnode.parse_data()
                     gibbs = pnode.data['G_au'] 
@@ -524,35 +536,37 @@ class ComputationalDataProcessor:
                 molecule_energy_df = pd.concat(molecule_energy_list)
                 middle_molecule_list.append(molecule_energy_df)
                 
-          
-                reaction_data = self.get_reaction_data(reaction_name, reactants, products, of_dir, sp_dir)
-                delta_g = reaction_data['Delta_G_au']
-                delta_h = reaction_data['Delta_H_au']
-                delta_e = reaction_data['Delta_E_el_thermo_au']
-                delta_e_sp = reaction_data['Delta_E_el_au']
-                bond_index = i + 1
-                df_temp = pd.DataFrame({
-                    f'{bond_type.lower()}_bond': [bond_index],
-                    'Delta G (au)' : [delta_g],
-                    'Delta G (kcal/mol)': [delta_g * 627.5],
-                    'Delta H (au)' : [delta_h],
-                    'Delta H (kcal/mol)' : [delta_h * 627.5],
-                    'Delta E (au)' : [delta_e],
-                    'Delta E (kcal/mol)' : [delta_e * 627.5],
-                    'Delta E (singlepoint) (au)' : [delta_e_sp],
-                    'Delta E (singlepoint) (kcal/mol)' : [delta_e_sp * 627.5],
-                    'head_frag': [f"{data[0]}_{data[3]}"]
-                })
-                df_list.append(df_temp)
+                if not ignore_reaction:
+                    reaction_data = self.get_reaction_data(reaction_name, reactants, products, temp_of_dir, temp_sp_dir)
+                    delta_g = reaction_data['Delta_G_au']
+                    delta_h = reaction_data['Delta_H_au']
+                    delta_e = reaction_data['Delta_E_el_thermo_au']
+                    delta_e_sp = reaction_data['Delta_E_el_au']
+                    bond_index = i + 1
+                    df_temp = pd.DataFrame({
+                        f'{bond_type.lower()}_bond': [bond_index],
+                        'Delta G (au)' : [delta_g],
+                        'Delta G (kcal/mol)': [delta_g * 627.5],
+                        'Delta H (au)' : [delta_h],
+                        'Delta H (kcal/mol)' : [delta_h * 627.5],
+                        'Delta E (au)' : [delta_e],
+                        'Delta E (kcal/mol)' : [delta_e * 627.5],
+                        'Delta E (singlepoint) (au)' : [delta_e_sp],
+                        'Delta E (singlepoint) (kcal/mol)' : [delta_e_sp * 627.5],
+                        'head_frag': [f"{data[0]}_{data[3]}"]
+                    })
+                    df_list.append(df_temp)
                 
+            
             middle_molecule_df = pd.concat(middle_molecule_list)
             outer_molecule_list.append(middle_molecule_df)
-            
-            df = pd.concat(df_list)
-            x = df[f'{bond_type.lower()}_bond']
-            y = df['Delta G (kcal/mol)']
-            outer_df_list.append(df)
-            plt.plot(x, y, label=df['head_frag'].iloc[0].replace('_', ' '))
+
+            if len(df_list) != 0:
+                df = pd.concat(df_list)
+                x = df[f'{bond_type.lower()}_bond']
+                y = df['Delta G (kcal/mol)']
+                outer_df_list.append(df)
+                plt.plot(x, y, label=df['head_frag'].iloc[0].replace('_', ' '))
 
         outer_molecule_df = pd.concat(outer_molecule_list)
         outer_molecule_df = outer_molecule_df.drop_duplicates(subset=['molecule'])
@@ -629,7 +643,7 @@ class ComputationalDataProcessor:
             
         return reactions
     
-    def get_molecule_data_for_bde_analysis(self):
+    def get_molecule_data_for_bde_analysis(self,suffixes=None):
         """
         Get predefined molecule data for bond dissociation energy analysis.
         
@@ -638,12 +652,25 @@ class ComputationalDataProcessor:
         list
             List of tuples with molecule information
         """
-        return [
-            ('HSO3', '0_2', '0_2', '0_1'),
-            ('HSO3', '-1_1', '0_2', '-1_2'),
-            ('SO3', '-1_2', '0_2', '-1_1'),
-            ('SO3', '-2_1', '0_2', '-2_2')
-        ]
+        if not suffixes:
+            return [
+                ('HSO3', '0_2', '0_2', '0_1'),
+                ('HSO3', '-1_1', '0_2', '-1_2'),
+                ('SO3', '-1_2', '0_2', '-1_1'),
+                ('SO3', '-2_1', '0_2', '-2_2')
+            ]
+        elif suffixes:
+            if len(suffixes) != 4:
+                raise ValueError('list of suffixes must be as long as list of templates')
+            return [
+                ('HSO3', '0_2', '0_2', '0_1',suffixes[0]),
+                ('HSO3', '-1_1', '0_2', '-1_2',suffixes[1]),
+                ('SO3', '-1_2', '0_2', '-1_1',suffixes[2]),
+                ('SO3', '-2_1', '0_2', '-2_2',suffixes[3])
+            ]
+
+        else: 
+            print('how')
     
     def get_method_data(self):
         """

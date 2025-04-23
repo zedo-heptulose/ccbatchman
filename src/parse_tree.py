@@ -85,8 +85,10 @@ class ParseLeaf(ParseNode):
         #TODO: fix this bad code
         if not os.path.exists(self.directory):
             raise ValueError(f"ParseLeaf attemped to access non-existent directory: {self.directory}")
+
         
-        if os.path.exists(run_info_path := os.path.join(self.directory,'run_info.json')):
+        run_info_path = os.path.join(self.directory,'run_info.json')
+        if os.path.exists(run_info_path):
             with open(run_info_path,'r') as json_file:
                 data = json.load(json_file)
             ruleset = data['ruleset']
@@ -94,7 +96,21 @@ class ParseLeaf(ParseNode):
             config_dir = os.path.join(os.path.dirname(__file__),'../config/file_parser_config',ruleset)
             ruleset = os.path.normpath(config_dir)
             if self.debug : print(f'found ruleset in run_info.json: {ruleset}')
-        if os.path.exists(self.json_path) and ruleset:
+
+        if not os.path.exists(self.json_path) and ruleset:
+            if os.path.basename(GAUSSIANRULES) == os.path.basename(ruleset):
+                output_file = self.json_path[:-5] + '.log'
+            
+            else:
+                output_file = self.json_path[:-5] + '.out'
+                
+            data = file_parser.extract_data(output_file,ruleset) #this will cause errors sometimes probably. idk. TODO: change this before others use it.
+            with open (self.json_path,'w') as json_file:
+                json.dump(data,json_file,indent=2) #okay no time like the present!
+                
+            self.data = data
+        
+        elif os.path.exists(self.json_path) and ruleset:
             with open(self.json_path, 'r') as json_file:
                 #TODO: remove or formalize this
                 if os.path.basename(GAUSSIANRULES) == os.path.basename(ruleset):
@@ -104,17 +120,20 @@ class ParseLeaf(ParseNode):
                     output_file = self.json_path[:-5] + '.out'
                 if self.debug: print(f'parsing output at {output_file}')
 
-                if os.path.exists(output_file):
+                
+                if os.path.exists(output_file): #okay why are we doing this twice
+                    # TODO: fix this
                     data = file_parser.extract_data(output_file,ruleset)
                 
-                else:
+                elif not os.path.exists(output_file): #what. why didn't this work.
                     with open(self.json_path,'r') as json_data:
                         self.data = json.load(json_data)
-                    return self 
+                    return self  #???? why do we return? oh, postprocessing would break w/ no output. that's a lesson in touching stuff I don't understand
                     #TODO: SHOULD FLAG AN ERROR HERE
+
+                else:
+                    raise RuntimeError('the implications are profound')
                 
-                
-            
                 self.data = data
                 
                 # print("data before postprocessing")
@@ -216,6 +235,10 @@ class CompoundNode(ParseNode):
             thermal_key = energy_type[1]
             data[thermal_key] = of_data.get(thermal_key,None)
             if not data[thermal_key]:
+                if not of_data.get(conversion_key,None):
+                    print('oh no! No thermochem! dumping data:')
+                    print(json.dumps(self.children[self.opt_freq_key].data,indent=2))
+                    raise ValueError(f'Missing expected thermochemistry data. Path: {self.children[self.opt_freq_key].directory}')
                 data[thermal_key] = of_data[conversion_key] - of_data['E_el_au']
             electronic_energy = data.get('E_el_au',None) 
             
