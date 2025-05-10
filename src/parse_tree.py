@@ -227,7 +227,7 @@ class CompoundNode(ParseNode):
         thermal_energies = [
             ('G_au','G_minus_E_el_au'),
             ('H_au','H_minus_E_el_au'),
-            ('E_el_thermo_au','E_minus_E_el_au'),
+            ('E_au','E_minus_E_el_au'), # old : 'E_el_thermo_au'
         ]
         data = sp_data.copy()
         for energy_type in thermal_energies:
@@ -278,7 +278,7 @@ class ThermoNode(ParseNode):
         self.energy_types = kwargs.get('energy_types',[
             'G_au',
             'H_au',
-            'E_el_thermo_au',
+            'E_au',
             'E_el_au'
         ])
         #TODO: pick a better name for this?
@@ -529,12 +529,12 @@ class DiradicalNode(ParseNode):
         raw_thermal_energies = [
             ('G_au','G_minus_E_el_au','G_au'),
             ('H_au','H_minus_E_el_au','H_au'),
-            ('E_el_thermo_au','E_minus_E_el_au','E_au'),
+            ('E_au','E_minus_E_el_au','E_au'),
         ]
         sc_thermal_energies = [
             ('G_au','G_minus_E_el_au','G_sc_au'),
             ('H_au','H_minus_E_el_au','H_sc_au'),
-            ('E_el_thermo_au','E_minus_E_el_au','E_sc_au'),
+            ('E_au','E_minus_E_el_au','E_sc_au'),
         ]
         thermo_keys = (raw_thermal_energies,sc_thermal_energies)
         

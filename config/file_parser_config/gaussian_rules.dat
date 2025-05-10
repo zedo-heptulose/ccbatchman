@@ -1,5 +1,5 @@
 E_el_au ; SCF Done: ; last ; float
-E_el_thermo_au ; Sum of electronic and thermal Energies ; last ; float
+E_au ; Sum of electronic and thermal Energies ; last ; float
 H_au ; Sum of electronic\s+and\s+thermal\s+Enthalpies ; last ; float 
 G_au ; Sum of electronic and thermal Free Energies ; last ; float
 imaginary_frequencies ; imaginary ; found   

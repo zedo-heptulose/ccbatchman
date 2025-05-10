@@ -46,32 +46,52 @@ class ORCAInput(CCInput):
         self.strings = []
         self.blocks = {}
         self.extension = '.inp'
+        ###############################
+        self.arbitrary_coords = None
 
     def cleanup(self):
         self.keywords = [keyword for keyword in self.keywords if keyword]
         self.strings = [string for string in self.strings if string]
         self.blocks = {block : self.blocks[block] for block in self.blocks if block}
         return self
+
+    def keywords_lines(self):
+        lines = []
+        for keyword in self.keywords:
+            lines.append(f'! {keyword.strip()}\n')
+        lines.append('\n')
+        for string in self.strings:
+            lines.append(f'{string.strip()}\n')
+        lines.append('\n')
+        for block in self.blocks:
+            lines.append(f'%{block.strip()}\n')
+            for line in self.blocks[block]:
+                lines.append(f' {line.strip()}\n')
+            lines.append('end\n\n')
+        lines.append('\n')
+        return lines
+
+    def coords_lines(self):
+        if self.arbitrary_coords:
+            if isinstance(self.arbitrary_coords,list):
+                lines = [*self.arbitrary_coords,'\n']
+            else:
+                raise ValueError('ORCAInput.arbitrary_coords must be type list')
+        else:
+            lines = [f"* xyzfile {self.charge} {self.multiplicity} {self.xyzfile} \n",'\n']
+        return lines
     
     def write_file(self):
         self.cleanup()
         full_path= os.path.join(self.directory,self.basename) + self.extension 
         with open (full_path,'w') as file:
-            for keyword in self.keywords:
-                file.write(f'! {keyword.strip()}\n')
-            file.write('\n')
-            for string in self.strings:
-                file.write(f'{string.strip()}\n')
-            file.write('\n')
-            for block in self.blocks:
-                file.write(f'%{block.strip()}\n')
-                for line in self.blocks[block]:
-                    file.write(f' {line.strip()}\n')
-                file.write('end\n\n')
-            file.write('\n')
-            file.write(f"* xyzfile {self.charge} {self.multiplicity} {self.xyzfile} \n\n")
-
+            keywords_lines = self.keywords_lines()
+            file.writelines(keywords_lines)
+            coords_lines = self.coords_lines()
+            file.writelines(coords_lines)
+    
     def load_file(self,path):
+        print('warning: ORCAInput.load_file() is deprecated')
         path = os.path.normpath(path)
         filename = os.path.basename(path)
         self.basename = os.path.splitext(filename)[0]
@@ -144,6 +164,7 @@ class GaussianInput(CCInput):
         self.title = "super secret special scripts shaped sthis submission sfile"
         self.extension = ".gjf"
         self.chkpath = '' 
+        self.post_coords_line = None # ok, gotta initialize variables too...
 
     def cleanup(self):
         self.keywords = [keyword for keyword in self.keywords if keyword]
@@ -184,9 +205,13 @@ class GaussianInput(CCInput):
             gjffile.write(f"{self.charge} {self.multiplicity}\n")
             if self.coordinates:
                 gjffile.writelines(self.coordinates)
-            gjffile.write(f"\n\n")
+            gjffile.write(f"\n")
+            if self.post_coords_line:
+                gjffile.write(f"{self.post_coords_line}\n")
+            gjffile.write(f"\n")
     
     def load_file(self,path):
+        # this is deprecated.
         #BE WARY, WE MUST USE ABSOLUTE PATHS WHEN WORKING WITH GAUSSIAN
         path = os.path.normpath(path)
         filename = os.path.basename(path)
@@ -210,6 +235,7 @@ class GaussianInput(CCInput):
         keywords_passed_flag = False
         start_title_flag = False
         read_coordinates_flag = False
+        coordinates_done_flag = False
         for line in lines:
             if self.debug: print(line)
             #TODO: match flexibility of Gaussian syntax
@@ -219,7 +245,15 @@ class GaussianInput(CCInput):
                 if self.debug: print(f"looking for coordinates")
                 if not re.match(r'^\s*$',line):
                     self.coordinates.append(line)
-                
+                else:
+                    coordinates_done_flag = True
+                    read_coordinates_flag = False
+
+            elif coordinates_done_flag:
+                if self.debug: print(f"looking for post line")
+                if not re.match(r'^\s*$',line):
+                    self.post_coords_line = line
+            
             elif re.match(r'\s*%\s*nprocs',line,re.I):
                 self.nprocs = int(re.search(r'\d+',line)[0])
                 if self.debug: print(f'setting nprocs: {self.nprocs}')
@@ -260,6 +294,7 @@ class GaussianInput(CCInput):
                 if self.debug: print(f'reading charge and multiplicity. Charge: {self.charge} Multiplicity: {self.multiplicity}')
             
 
+        
         #TODO: allow more flexibility here
         
         self.mem_per_cpu_gb = mem #we were doing floor division twice and making it zero
@@ -492,6 +527,16 @@ class ORCAInputBuilder(InputBuilder):
     def build_input(self):
         ################ inp options #####################
         inp = ORCAInput() 
+        
+        #### 5/9/2025
+        arbitrary_coords = self.config.get('arbitrary_coords')
+        if arbitrary_coords:
+            inp.arbitrary_coords = arbitrary_coords
+        blocks = self.config.get('blocks')
+        if blocks:
+            inp.blocks = blocks
+        ####
+            
         inp.directory = self.config['write_directory']
         inp.basename = self.config['job_basename']
         
@@ -595,7 +640,9 @@ class GaussianInputBuilder(InputBuilder):
         inp.mem_per_cpu_gb = self.config['mem_per_cpu_GB']
         inp.charge = self.config['charge']
         inp.multiplicity = self.config['spin_multiplicity']
-
+        ###################################
+        inp.post_coords_line = self.config['post_coords_line']
+        ###################################
         inp.xyzfile = self.config.get('xyz_file',None)
 
         return inp

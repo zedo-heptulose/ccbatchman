@@ -1,10 +1,13 @@
 {
-  "path_to_program": "g16",
+  "path_to_program": "g09",
   "pre_submit_lines": [
 	  "module purge",
-  	  "module load gaussian16"
+  	  "module load gaussian09"
   ],
-  "post_submit_lines": null,
+  "post_submit_lines": [
+  	  "conda activate AICD",
+	  "AICD -m 2 -s -rot 0 0 0 -b -1 0 0 -p 200000 --scale 0.25 --resolution 4096 3072 --maxarrowlength 1.5 -runpov *log"
+  ],
   "num_cores": 12,
   "mem_per_cpu_GB": 4,
   "runtime": "1-00:00:00",
@@ -28,6 +31,5 @@
   "natural_orbitals": false,
   "integration_grid": null,
   "other_keywords": [],
-  "blocks": {},
-  "post_coords_line" : null
+  "blocks": {}
 }

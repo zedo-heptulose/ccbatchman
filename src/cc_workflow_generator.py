@@ -67,6 +67,17 @@ DEFAULT_GAUSSIAN_NICS_CONFIG = {
     "run_type": "NMR=GIAO",
 }
 
+DEFAULT_GAUSSIAN_AICD_CONFIG = {
+    "program": "Gaussian",
+    "other_keywords": ["int=Ultrafine"],
+    "run_type": "scf=tight nmr=csgt iop(10/93=1)",
+    "post_submit_lines": [
+          "conda activate AICD",
+          "AICD -m 2 -s -rot 0 0 0 -b -1 0 0 -p 200000 --scale 0.25 --resolution 4096 3072 --maxarrowlength 1.5 -runpov *log"
+    ],
+    "post_coords_line" : 'AICD_temp.txt' #new
+}
+
 DEFAULT_XTB_OPTFREQ_CONFIG = {
     "program": "XTB",
     "functional": "gfn2",
@@ -588,6 +599,47 @@ class WorkflowGenerator:
         return theory_name, theory
 
 
+    def add_gaussian_aicd_step(self, name: str, functional: str, basis: str,
+                       config_overrides: Dict = None,
+                       coords_source: str = None,xyz_filename=None) -> 'WorkflowGenerator':
+        """
+        Add a Gaussian single point calculation step.
+        
+        Parameters:
+            name (str): Name for this step
+            functional (str): DFT functional name
+            basis (str): Basis set name
+            config_overrides (dict): Settings to override defaults
+            coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file for use with coords_source
+            
+        Returns:
+            self: For method chaining
+        """
+        gaussian_config = copy.deepcopy(DEFAULT_GAUSSIAN_AICD_CONFIG)
+        
+        # Set the functional, basis, and dispersion
+        gaussian_config["functional"] = functional
+        gaussian_config["basis"] = basis
+        
+        # Set coordinate source if provided
+        if coords_source:
+            gaussian_config["!coords_from"] = f"../{coords_source}"
+            if xyz_filename:
+                gaussian_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                gaussian_config["!xyz_file"] = f"crest_best.xyz"
+            else:
+                gaussian_config["!xyz_file"] = f"{coords_source}.xyz"
+                
+        # Override with any user settings
+        if config_overrides: # watch that we aren't overwriting the IOP keyword
+            gaussian_config.update(config_overrides)
+        
+        self.workflow[name] = gaussian_config
+        return self
+
+
     
     def create_multi_theory_workflow(self, 
                        optfreq_functionals: List[Union[str,tuple]] = None,
@@ -759,15 +811,19 @@ class WorkflowGenerator:
                        sp_basis_sets: List[Union[str,tuple]] = None,
                        nics_functionals: List[Union[str,tuple]] = None,
                        nics_basis_sets: List[Union[str,tuple]] = None,
+                       aicd_functionals: List[Union[str,tuple]] = None,
+                       aicd_basis_sets: List[Union[str,tuple]] = None,
                        program: str = "ORCA",
                        optfreq_program: str = None,
                        sp_program: str = "ORCA",
                        nics_program: str = "Gaussian",
+                       aicd_program: str = "Gaussian",
                        do_crest: bool = True,
                        crest_overrides: Dict = None,
                        optfreq_overrides: Dict = None,
                        sp_overrides: Dict = None,
                        nics_overrides: Dict = None,
+                       aicd_overrides: Dict = None,
                        name_suffix: str = None,
                         ) -> 'WorkflowGenerator':
         """
@@ -778,17 +834,25 @@ class WorkflowGenerator:
             optfreq_basis_sets (list): List of basis sets for geometry optimization
             sp_functionals (list): List of functionals for single point energy 
             sp_basis_sets (list): List of basis sets for single point energy
-                all of functional/basis sets can be given as tuple (name,functional)
+            nics_functionals (list): List of functionals for NICS
+            nics_basis_sets (list): List of basis sets for NICS
+            aicd_functionals (list): List of functionals for AICD
+            aicd_basis_sets (list): List of basis sets for AICD
+            
+            all of functional/basis sets can be given as tuple (name,functional)
                 or as str "functional" within list
             program (str): Program to use ('ORCA', 'Gaussian', or 'XTB')
             optfreq_program: Program to use for optimization + frequency step
             sp_program: Program to use for singlepoint step
             nics_program: Program to use for NICS step
+            aicd_program: Program to use for AICD step
+            
             do_crest (bool): Whether to include a CREST conformer search step
             crest_overrides (dict): Settings to override CREST defaults
             optfreq_overrides (dict): Settings to override optfreq defaults
             sp_overrides (dict): Settings to override single point defaults
-            
+            nics_overrides (dict): Settings to override NICS defaults
+            aicd_overrides (dict) Settings to override AICD defaults
         Returns:
             self: For method chaining
         """
@@ -942,6 +1006,24 @@ class WorkflowGenerator:
                         )
                     else:
                         raise ValueError('NICS calculation only available for Gaussian')
+
+            if aicd_functionals and aicd_basis_sets:
+                for aicd_func, aicd_basis in itertools.product(aicd_functionals,aicd_basis_sets):
+                    aicd_func_name, aicd_func = self.split_theory_name(aicd_func)
+                    aicd_basis_name,aicd_basis = self.split_theory_name(aicd_basis)
+                    aicd_name = f"{aicd_func_name}_{aicd_basis_name}_AICD_{functional_name}_{basis_name}"
+
+                    if name_suffix:
+                        aicd_name += f"_{name_suffix}"
+                        
+                    if aicd_program.upper() == "GAUSSIAN":
+                        self.add_gaussian_aicd_step( 
+                            aicd_name, aicd_func, aicd_basis,
+                            config_overrides=aicd_overrides,
+                            coords_source=optfreq_name
+                        )
+                    else:
+                        raise ValueError('AICD calculation only available for Gaussian')
                     
         return self
     

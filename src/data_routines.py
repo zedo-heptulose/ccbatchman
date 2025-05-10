@@ -519,7 +519,7 @@ class ComputationalDataProcessor:
                     pnode.parse_data()
                     gibbs = pnode.data['G_au'] 
                     enthalpy = pnode.data['H_au']
-                    energy = pnode.data['E_el_thermo_au']
+                    energy = pnode.data['E_au'] 
                     sp_energy = pnode.data['E_el_au']
                     mol_df_temp = pd.DataFrame({
                         f'molecule': [species],
@@ -540,7 +540,7 @@ class ComputationalDataProcessor:
                     reaction_data = self.get_reaction_data(reaction_name, reactants, products, temp_of_dir, temp_sp_dir)
                     delta_g = reaction_data['Delta_G_au']
                     delta_h = reaction_data['Delta_H_au']
-                    delta_e = reaction_data['Delta_E_el_thermo_au']
+                    delta_e = reaction_data['Delta_E_au']
                     delta_e_sp = reaction_data['Delta_E_el_au']
                     bond_index = i + 1
                     df_temp = pd.DataFrame({

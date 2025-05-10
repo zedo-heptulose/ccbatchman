@@ -23,7 +23,7 @@ class OrcaPostProcessor:
 
         #data
         self.data = {} #this goes with data
-        self.frontier_uno_occupations = [] #probably should be separate from data
+        self.frontier_uno_occupations = [] # should be separate from data
         #these are really stupid names, but eh.
         #use CCLIB for this stuff dummy
         self.HONOs = []
@@ -35,7 +35,7 @@ class OrcaPostProcessor:
     
     @property
     def output_path(self):
-         return os.Spath.join(self.dirname,self.basename) + self.output_extension
+         return os.path.join(self.dirname,self.basename) + self.output_extension
 
     @property
     def json_path(self):
