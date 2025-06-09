@@ -28,10 +28,8 @@ class ParseTree:
             json.dump(self.data,json_file,indent=2)
     
     def depth_first_parse(self,node=None,dirpath=None):
-        if self.debug: print(f"root dir: {self.root_dir}")
         current_node = node if node else self.root_node
         dirpath = dirpath if dirpath else self.root_dir
-        if self.debug: print(f"DIRPATH: {dirpath}")
         #this should do nothing if there is no node
         for key, node in current_node.children.items():
             new_dir = os.path.join(dirpath,node.basename) #an assumption is being made here...
@@ -45,12 +43,21 @@ class ParseTree:
         #this is the intended behavior
         current_node.basename = os.path.basename(current_node.basename) 
         
-        if self.debug : print(f"DIRECTORY: {current_node.directory}")
-        if self.debug : print(f"BASENAME: {current_node.basename}")
+        
+        if self.debug: # JUST ADDED THIS (5/14/2025)
+            current_node.debug = self.debug #appears to obviate the need for debug statements in parsetree itself.
         current_node.parse_data()
-        if self.debug : print(f"DATA: {current_node.data}")
-        current_node.write_json()
-
+        # if self.debug:
+        #     print(f"root dir: {self.root_dir}")
+        #     print(f"DIRECTORY: {current_node.directory}")
+        #     print(f"BASENAME: {current_node.basename}")
+        #     print(f"DIRPATH: {dirpath}")
+        #     print(f"DATA: {current_node.data}")
+        if current_node.data:
+            current_node.write_json() #consider putting this in a conditional, like if data: 
+        if not current_node.data:
+            raise RuntimeError(f'Parsing failed!\ndumping data:\n{json.dumps(current_node.data,indent=2)}')
+    
 
 
 
@@ -64,6 +71,7 @@ class ParseNode:
         self.data = {} #
         self.directory = "" #full path to the directory this uses
         self.basename = basename
+        self.lazy = kwargs.get('lazy',True) 
 
     @property
     def json_path(self):
@@ -82,6 +90,17 @@ class ParseLeaf(ParseNode):
         if self.debug: print(f"in directory: {self.directory}")
         if self.debug: print(f"opening file: {self.json_path}")
         ruleset = None
+
+        if os.path.exists(self.json_path) and self.lazy:
+            if self.debug:
+                print('-------------------------')
+                print('using new lazy evaluation')
+                print('note - no postprocessing this way')
+                print('-------------------------')
+            with open(self.json_path,'r') as json_file:
+                self.data = json.load(json_file)
+            return self
+            
         #TODO: fix this bad code
         if not os.path.exists(self.directory):
             raise ValueError(f"ParseLeaf attemped to access non-existent directory: {self.directory}")
@@ -89,6 +108,8 @@ class ParseLeaf(ParseNode):
         
         run_info_path = os.path.join(self.directory,'run_info.json')
         if os.path.exists(run_info_path):
+            if self.debug:
+                print('run_info.json exists, reading ruleset')
             with open(run_info_path,'r') as json_file:
                 data = json.load(json_file)
             ruleset = data['ruleset']
@@ -97,6 +118,33 @@ class ParseLeaf(ParseNode):
             ruleset = os.path.normpath(config_dir)
             if self.debug : print(f'found ruleset in run_info.json: {ruleset}')
 
+        # handle case where there is no run_info.json. 
+        # For our purposes, output files with the .out extension are ORCA, and those with the .log extension are Gaussian.
+        # Should have some kind of flag where we can decide not to do this with strict settings, to avoid bugs.
+        # And this should never happen silently, even if self.debug == False.
+        else:
+            print('NO run_info.json - inferring program from file extension.')
+            orca_output_file = self.json_path[:-5] + '.out'
+            gaussian_output_file = self.json_path[:-5] + '.log'
+            # get rid of these later, just seeing what these look like
+            print(orca_output_file)
+            print(gaussian_output_file)
+            if os.path.exists(orca_output_file):
+                print('inferring ORCA - .out extension found')
+                ruleset = os.path.basename(ORCARULES)
+            elif os.path.exists(gaussian_output_file):
+                print('inferring Gaussian - .log extension found')
+                ruleset = os.path.basename(GAUSSIANRULES)
+            config_dir = os.path.join(os.path.dirname(__file__),'../config/file_parser_config',ruleset)
+            ruleset = os.path.normpath(config_dir)
+            if self.debug : print(f'found ruleset in run_info.json: {ruleset}')
+            
+                
+        # Okay, it might be good to be able to handle there not being a run info path.
+        # we can check whether the job basename .log exists or job basename .out exists and infer ORCA or Gaussian by default.
+
+        
+        
         if not os.path.exists(self.json_path) and ruleset:
             if os.path.basename(GAUSSIANRULES) == os.path.basename(ruleset):
                 output_file = self.json_path[:-5] + '.log'
@@ -235,15 +283,57 @@ class CompoundNode(ParseNode):
             thermal_key = energy_type[1]
             data[thermal_key] = of_data.get(thermal_key,None)
             if not data[thermal_key]:
+                # TODO: remove this when no longer necessary
+                if not of_data.get(conversion_key,None) and conversion_key == 'E_au':
+
+                    if self.debug:
+                        print('---------------------')
+                        print('resetting conversion key.')
+                        print(f'old conversion key: {conversion_key}')
+                    
+                    conversion_key = 'E_el_thermo_au'      
+
+                    if self.debug:
+                        print(f'new conversion key: {conversion_key}')
+                        print('---------------------')
+                
                 if not of_data.get(conversion_key,None):
-                    print('oh no! No thermochem! dumping data:')
-                    print(json.dumps(self.children[self.opt_freq_key].data,indent=2))
+                    if self.debug:
+                        print('---------------------')
+                        print('oh no! No thermochem!')
+                        print(f'conversion_key: {conversion_key}')
+                        print(f'data: {of_data.get(conversion_key,None)}')
+                        print('dumping data:')
+                        print(json.dumps(self.children[self.opt_freq_key].data,indent=2))
+                        print('---------------------')
                     raise ValueError(f'Missing expected thermochemistry data. Path: {self.children[self.opt_freq_key].directory}')
                 data[thermal_key] = of_data[conversion_key] - of_data['E_el_au']
-            electronic_energy = data.get('E_el_au',None) 
+                
+            electronic_energy = data.get('E_el_au',None)
+
+            # undo this temporary change
+            if conversion_key == 'E_el_thermo_au':
+                conversion_key = 'E_au'
+                if self.debug:
+                    print('---------------------')
+                    print('CHANGING CONVERSION KEY')
+                    print(f'new conversion_key: {conversion_key}')
+                    print('---------------------')
             
             if data[thermal_key] and electronic_energy:
                 data[conversion_key] = electronic_energy + data[thermal_key] 
+                
+                if self.debug and conversion_key == 'E_el_thermo_au':
+                    print('---------------------')
+                    print('IN LAST PART OF FUNCTION:')
+                    print(f'conversion_key: {conversion_key}')
+                    print(f'thermal_key: {thermal_key}')
+                    print('---------------------')
+                elif self.debug and conversion_key == 'E_au':
+                    print('---------------------')
+                    print(f'conversion_key: {conversion_key}')
+                    print('---------------------')
+            
             elif not data[thermal_key]:
                 child_dir = self.children[self.opt_freq_key].directory
                 if self.debug: print(f"No key {thermal_key} for {child_dir}, setting energy to np.nan")

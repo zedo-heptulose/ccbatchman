@@ -98,7 +98,9 @@ class ComputationalDataProcessor:
         tree.depth_first_parse()
         return tree.data['Delta_G_kcal_mol-1']
 
-    def get_reaction_data(self, reaction_name, reactants, products, of_dir, sp_dir):
+    def get_reaction_data(self, reaction_name, reactants, products, of_dir, sp_dir,debug=False):
+        if not debug:
+            debug = self.debug
         params = {
             'products': products,
             'reactants': reactants,
@@ -106,7 +108,7 @@ class ComputationalDataProcessor:
             'root_basename': reaction_name,
             'opt_freq_dir': of_dir,
             'singlepoint_dir': sp_dir,
-            'debug': self.debug
+            'debug': debug,
         }
         
         tree = parse_tree_builders.SimpleThermoTreeBuilder(params).build()
@@ -424,9 +426,10 @@ class ComputationalDataProcessor:
     
     def analyze_bond_dissociation(self, bond_type, molecule_data, of_dir, sp_dir,
                                   solvent='water',title=None, 
-                                  ylim=(0, 120), save_path=None,
+                                  ylim=(-10, 120), save_path=None,
                                   ignore=None,
-                                 debug=False):
+                                 debug=False,
+                                 strict=False):
         """
         Analyze and visualize bond dissociation energies.
         
@@ -446,12 +449,20 @@ class ComputationalDataProcessor:
             Y-axis limits
         save_path : str
             Path to save the figure (if None, figure is not saved)
+        ignore: list
+            Molecules not to parse output for, ignore reactions containing these molecules
+        debug: bool
+            print verbose output of intermediate operations for debugging
+        strict: bool
+            if True, raises an exception if molecule output cannot be parsed; if False, simply ignores reactions with molecules whose output files cannot be parsed
             
         Returns:
         --------
         matplotlib.figure.Figure
             The created figure
         """
+        reactions = []
+        
         if title is None:
             title = f"{bond_type} Bond Dissociation Energies | {sp_dir}//{of_dir}"
             
@@ -460,13 +471,29 @@ class ComputationalDataProcessor:
         if not solvent:
             solvent = 'gas'
 
+        fail_cases = []
+        if not ignore:
+            ignore = []
+        
         outer_molecule_list = []
         outer_df_list = []
         for data in molecule_data:
             df_list = []
             middle_molecule_list = []
             for i in range(0, 8):
-                reaction_name = 'scratch'
+                if data[3] == '0_1':
+                    descriptor = 'protonated'
+                if data[3] == '-1_1':
+                    descriptor = 'deprotonated'
+                if data[3] == '-1_2':
+                    descriptor = 'protonated-radical-anion'
+                if data[3] == '-2_2':
+                    descriptor = 'deprotonated-radical-dianion'
+                
+                if bond_type == 'C-C':
+                    reaction_name = f'CC-BDE-{i+1}-{descriptor}'
+                elif bond_type == 'C-F':
+                    reaction_name = f'CF-BDE-{i+1}-{descriptor}'
                 if i < 7:
                     if bond_type == 'C-C':
                         products = {
@@ -499,7 +526,7 @@ class ComputationalDataProcessor:
                         }
                     else:
                         pass
-                    
+                
                 molecule_energy_list = []
                 if len(data) == 5 :
                     suffix = data[4]
@@ -508,35 +535,57 @@ class ComputationalDataProcessor:
                 temp_sp_dir = sp_dir + suffix
                 temp_of_dir = of_dir + suffix
                 ignore_reaction = False
+                fail_case = False
+
+
                 for species in {**reactants, **products}.keys():
-                    if ignore:
-                        if species in ignore:
-                            ignore_reaction = True
-                            continue
+                    try:
+                        if ignore:
+                            if species in ignore:
+                                ignore_reaction = True
+                                continue
                     #parse energies
-                    pnode = parse_tree.CompoundNode(species,temp_of_dir,temp_sp_dir,self.root_dir,recursive=True)
-                    # pnode.debug = True
-                    pnode.parse_data()
-                    gibbs = pnode.data['G_au'] 
-                    enthalpy = pnode.data['H_au']
-                    energy = pnode.data['E_au'] 
-                    sp_energy = pnode.data['E_el_au']
-                    mol_df_temp = pd.DataFrame({
-                        f'molecule': [species],
-                        'G (au)' : [gibbs],
-                        'G (kcal/mol)': [gibbs * 627.5],
-                        'H (au)' : [enthalpy],
-                        'H (kcal/mol)' : [enthalpy * 627.5],
-                        'E (au)' : [energy],
-                        'E (kcal/mol)' : [energy * 627.5],
-                        'E (singlepoint) (au)' : [sp_energy],
-                        'E (singlepoint) (kcal/mol)' : [sp_energy * 627.5]
-                    })
-                    molecule_energy_list.append(mol_df_temp)
-                molecule_energy_df = pd.concat(molecule_energy_list)
-                middle_molecule_list.append(molecule_energy_df)
+                        pnode = parse_tree.CompoundNode(species,temp_of_dir,temp_sp_dir,self.root_dir,recursive=True)
+                        # pnode.debug = True
+                        pnode.parse_data()
+                        gibbs = pnode.data['G_au'] 
+                        enthalpy = pnode.data['H_au']
+                        energy = pnode.data['E_au'] 
+                        sp_energy = pnode.data['E_el_au']
+                        mol_df_temp = pd.DataFrame({
+                            f'molecule': [species],
+                            'G (au)' : [gibbs],
+                            'G (kcal/mol)': [gibbs * 627.5],
+                            'H (au)' : [enthalpy],
+                            'H (kcal/mol)' : [enthalpy * 627.5],
+                            'E (au)' : [energy],
+                            'E (kcal/mol)' : [energy * 627.5],
+                            'E (singlepoint) (au)' : [sp_energy],
+                            'E (singlepoint) (kcal/mol)' : [sp_energy * 627.5]
+                        })
+                    
+                        molecule_energy_list.append(mol_df_temp)
                 
-                if not ignore_reaction:
+                    except:
+                        # if debug:
+                        print('----------------------')
+                        print('parse failed.')
+                        print(f'species: {species}')
+                        print('----------------------')
+                            
+                        fail_case = True
+                        fail_cases.append(species)
+                        # ignore.append(species)
+                        if strict: # this will raise an error, since this occasioned stepping into the except block.
+                            # we run it with verbose debug output in this statement however
+                            reaction_data = self.get_reaction_data(reaction_name, reactants, products, temp_of_dir, temp_sp_dir,debug=True)
+
+                if len(molecule_energy_list) != 0:
+                    molecule_energy_df = pd.concat(molecule_energy_list) 
+                middle_molecule_list.append(molecule_energy_df)
+
+                
+                if not ignore_reaction and not fail_case:
                     reaction_data = self.get_reaction_data(reaction_name, reactants, products, temp_of_dir, temp_sp_dir)
                     delta_g = reaction_data['Delta_G_au']
                     delta_h = reaction_data['Delta_H_au']
@@ -556,8 +605,13 @@ class ComputationalDataProcessor:
                         'head_frag': [f"{data[0]}_{data[3]}"]
                     })
                     df_list.append(df_temp)
+                else:
+                    reaction_data = None # see what this does lol
+    
+                reactions.append((tuple(reactants),tuple(products),reaction_data,reaction_name))
                 
-            
+
+                
             middle_molecule_df = pd.concat(middle_molecule_list)
             outer_molecule_list.append(middle_molecule_df)
 
@@ -571,8 +625,11 @@ class ComputationalDataProcessor:
         outer_molecule_df = pd.concat(outer_molecule_list)
         outer_molecule_df = outer_molecule_df.drop_duplicates(subset=['molecule'])
         outer_molecule_df.index = range(0,len(outer_molecule_df))
-        outer_df = pd.concat(outer_df_list)
-        outer_df.index = range(0,len(outer_df))
+        if len(outer_df_list) != 0: 
+            outer_df = pd.concat(outer_df_list)
+            outer_df.index = range(0,len(outer_df))
+        else:
+            outer_df = None
         plt.title(title)
         plt.ylabel('Delta G (kcal/mol)')
         plt.xlabel('Bond index')
@@ -586,7 +643,9 @@ class ComputationalDataProcessor:
                 save_path = f"{save_path}{filename}.png"
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
 
-        return outer_df, outer_molecule_df
+        return outer_df, outer_molecule_df, fail_cases, reactions
+
+    
 
     def make_reactions(self, acid_heads, base_heads):
         """

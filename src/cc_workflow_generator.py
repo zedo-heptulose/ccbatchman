@@ -1071,6 +1071,18 @@ class WorkflowGenerator:
                 config["!coords_from"] = None
             if "!xyz_file" in config:
                 config["!xyz_file"] = None  # Use the original XYZ file
+            if "run_type" in config:
+                print('--------------------------')
+                print('in _modify_workflow_for_atoms()')
+                words = config["run_type"].lower().strip().split(' ')
+                words = [word for word in words if not word.lower() == 'opt']
+                run_type = " ".join(words)
+                print('removing OPT from run_type')
+                print('before')
+                print(config["run_type"])
+                print('after')
+                print(run_type)
+                config["run_type"] = run_type
             config['num_cores'] = 1 #pretty much always necessary for atom jobs.
             #might turn out to be an edge case for heavy atoms but we don't really use those
         return modified_workflow
@@ -1119,6 +1131,12 @@ class WorkflowGenerator:
             # Check if this is an atom group (skip CREST)
             workflow = self.workflow
             if mol_group in self.atom_groups:
+                print('--------------------------')
+                print('hotfix 2025-06-07')
+                print('check this')
+                print(mol_group)
+                print('if we\'re here, this is an atom')
+                print('--------------------------')
                 workflow = self._modify_workflow_for_atoms(workflow)
             
             # Create the input list

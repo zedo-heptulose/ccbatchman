@@ -3,6 +3,7 @@ import re
 import shutil
 import json
 import helpers
+import format_conversion
 
 config_relpath = '../config/input_generator_config/'
 src_dir = os.path.dirname(os.path.abspath(__file__))
@@ -457,6 +458,8 @@ class Job:
 class InputBuilder:
     def __init__(self):
         raise NotImplementedError('InputBuilder is an abstract class')
+        ### this code will never run, it is here for the benefit
+        ### of you, the programmer, making new classes that inherit this one
         self.config = helpers.load_config_from_file('/path/to/config')
         self.debug = False
 
@@ -516,26 +519,82 @@ class InputBuilder:
 
 
 
-
 class ORCAInputBuilder(InputBuilder):
     def __init__(self):
         self.config = helpers.load_config_from_file(f'{CONFIGPATH}{ORCACONFIG}') 
+        self.debug = False
+
+
     
     def submit_line(self):
         return f"{self.config['path_to_program']} {self.config['job_basename']}.inp > {self.config['job_basename']}.out"
+
+
+    
+    def convert_xyz_to_internals(self):
+        print('Entering new convert_xyz_to_internals() function')
+        xyz_path = os.path.join(self.config['xyz_directory'],self.config['xyz_file'])
+        if not os.path.exists('xyz_temp'):
+            os.mkdir('xyz_temp')
+        format_conversion.convert_xyz( self.config['xyz_file'],self.config['xyz_directory'],'xyz_temp')
+    	
+        charge = self.config.get('charge',None)
+        # print(charge)
+        multiplicity = self.config.get('spin_multiplicity',None)
+        # print(multiplicity)
+        if not isinstance(charge,int) or not isinstance(multiplicity,int):
+            print('--------------------------')
+            print('missing charge or multiplicity, printing parameters')
+            print(json.dumps(self.config,indent=6))
+            print('--------------------------')
+            raise ValueError('Charge or Multiplicity not specified')
+        
+        gzmat_file = self.config['xyz_file'][:-4] + '.gzmat'
+        gzmat_path = os.path.join('xyz_temp',gzmat_file)
+        # print(gzmat_file)
+        # print(gzmat_path)
+        
+        with open(gzmat_path,'r') as file:
+            lines = file.readlines()
+            coord_lines = format_conversion.gzmat_to_orca(lines,charge,multiplicity)
+        
+        if self.debug:        
+            print('-------------------------')
+            print('coordinates:')
+            print(*coord_lines)
+            print('-------------------------')
+        
+            print('-------------------------')
+            print('parameters before modifying:')
+            print(json.dumps(self.config,indent=6))
+            print('-------------------------')
+    
+        if not self.config.get('blocks',None):
+            self.config['blocks'] = {}
+    
+        # write_directory = os.path.join(root_directory,basename)
+        
+        self.config.update({
+            # 'xyz_directory' : None,
+            # 'xyz_file' : None, # don't need to anymore
+            'arbitrary_coords' : coord_lines,
+        })
+        
+        shutil.rmtree('xyz_temp') # might be dangerous
+        
+        if self.debug:
+            print('-------------------------')
+            print('parameters after modifying:')
+            print(json.dumps(self.config,indent=6))
+            print('-------------------------')
+
+########################################################
+
+    
     
     def build_input(self):
         ################ inp options #####################
         inp = ORCAInput() 
-        
-        #### 5/9/2025
-        arbitrary_coords = self.config.get('arbitrary_coords')
-        if arbitrary_coords:
-            inp.arbitrary_coords = arbitrary_coords
-        blocks = self.config.get('blocks')
-        if blocks:
-            inp.blocks = blocks
-        ####
             
         inp.directory = self.config['write_directory']
         inp.basename = self.config['job_basename']
@@ -584,10 +643,14 @@ class ORCAInputBuilder(InputBuilder):
                         condition = True
                 if not condition:
                     inp.blocks['scf'].append('brokensym 1,1')
-        
-        inp.charge = self.config['charge']
-        inp.multiplicity = self.config['spin_multiplicity']
-        inp.xyzfile = self.config['xyz_file']
+
+        if self.config.get('internals',False):
+            self.convert_xyz_to_internals()
+            inp.arbitrary_coords = self.config['arbitrary_coords']
+        else:
+            inp.charge = self.config['charge']
+            inp.multiplicity = self.config['spin_multiplicity']
+            inp.xyzfile = self.config['xyz_file']
         return inp
 
 
