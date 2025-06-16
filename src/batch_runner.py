@@ -9,7 +9,11 @@ import re
 import editor
 import numpy as np
 
+
 import argparse
+
+## new 2025-06-14
+import restart_jobs
 
 
 #TODO: add arguments for each of these
@@ -28,7 +32,9 @@ class BatchRunner:
         self.restart = kwargs.get('restart',True) #This option is for using an old ledger file
         self.max_jobs_running = kwargs.get('num_jobs',1)
         self.debug = kwargs.get('debug',False)
-
+        ###
+        self.restart_failed = kwargs.get('restart_failed',False)
+        ###
         self.running_ledger_filename = kwargs.get('running_ledger_filename','__running__.csv')
         self.failed_ledger_filename = kwargs.get('failed_ledger_filename','__failed__.csv')
         self.succeeded_ledger_filename = kwargs.get('succeeded_ledger_filename','__succeeded__.csv')
@@ -44,6 +50,9 @@ class BatchRunner:
             'ledger_filename' : self.ledger_filename,
             'restart' : self.restart,
             'max_jobs_running' : self.max_jobs_running,
+            ###
+            'restart_failed' : self.restart_failed,
+            ###
         }
     #tested
     def from_dict(self,data):
@@ -54,6 +63,9 @@ class BatchRunner:
         self.ledger_filename = data['ledger_filename']
         self.restart = data['restart']
         self.max_jobs_running = data['max_jobs_running']
+        ###
+        self.restart_failed = data['restart_failed']
+        ###
         return self
         
     #tested
@@ -275,12 +287,6 @@ class BatchRunner:
                 job.directory = not_started_jobs.iloc[i]['job_directory']
                 if self.debug: print(f"directory set to {job.directory}")
 
-                # we do this as a hotfix, it's for an edge case that won't exist in the future
-                self.final_parse_dependency(not_started_jobs.iloc[i]) #new functionality           
-                self.transfer_coords(not_started_jobs.iloc[i],job)
-                # this can eventually be removed, maybe? 
-                # if this is slowing the program down substantially, it should be
-               
                 job.update_status() #this was changed, ensure desired behavior!
                 job.write_json()
                 
@@ -305,6 +311,8 @@ class BatchRunner:
                     print(f"job name: {job.job_name}")
                     print(f"job directory: {job.directory}")
                     print("////////////////////////////////////////////////////////")
+                    self.final_parse_dependency(not_started_jobs.iloc[i]) #new functionality   
+                    self.transfer_coords(not_started_jobs.iloc[i],job)
                     job.submit_job()
 
                 elif job.status in ['running','pending']:
@@ -390,7 +398,7 @@ class BatchRunner:
         if not os.path.exists(ledger_path):
             raise ValueError('ledger path does not exist')
         old_ledger = pd.read_csv(ledger_path,sep='|')
-        if self.debug: print(f"Old ledger loaded with filename:\n{self.ledger}")
+        if self.debug: print(f"Old ledger loaded with filename:\n{self.ledger_filename}")
             
         self.ledger = pd.concat([self.ledger, old_ledger])\
         .drop_duplicates(subset=['job_directory', 'job_basename'], keep='last')
@@ -490,13 +498,29 @@ class BatchRunner:
                 'directory': directory,
                 'job_name' : basename,
                 })
-            
+            # print('---------------------------------------')
+            # print(f"DIRECTORY: {directory}")
+            # print(f"ID: {row['job_id']}")
+            # print(f"JOB STATUS IN LEDGER: {row['job_status']}")
+            # print(f"JOB STATUS IN job OBJECT: {job.status}")
             job.update_status()
+            # print(f"JOB STATUS IN job OBJECT AFTER UPDATE: {job.status}")
             self.ledger.loc[i, 'job_id'] = job.job_id
             self.ledger.loc[i, 'job_status'] = job.status
+            # print('---------------------------------------')
+            # print(f"JOB STATUS IN LEDGER: {self.ledger.loc[i,'job_status']}")
+            # print('---------------------------------------')
             if job.status == 'failed':
                 self.flag_broken_dependencies()
             del job
+
+
+    def restart_failed_jobs(self,**kwargs):
+        ledger_path = os.path.join(self.scratch_directory,self.ledger_filename)
+        self.write_ledger()
+        restart_jobs.restart_routine(ledger_path)
+        self.read_old_ledger()
+    
 
     def MainLoop(self,**kwargs):
         print('batch_runner\nInitializing run\n')
@@ -509,13 +533,21 @@ class BatchRunner:
             self.write_ledger()
             return
         while not self.check_finished():
-            if self.debug: print('updating ledger and running job loops')
+            # if self.debug: 
+            print('updating ledger and running job loops')
             self.run_jobs_update_ledger()
-            if self.debug: print('queueing new jobs')
+            # if self.debug: 
+            print('queueing new jobs')
             self.queue_new_jobs()
-            if self.debug: print('writing ledger')
+            # if self.debug: 
+            if self.restart_failed:
+                print('restarting failed jobs')
+                self.restart_failed_jobs()
+            # if self.debug: 
+            print('writing ledger')
             self.write_ledger()
-            if self.debug: print('sleeping')
+            # if self.debug: 
+            print('sleeping')
             time.sleep(0.1)
         print("\n\nEXITING\n\n")
         return
@@ -529,6 +561,7 @@ if __name__ == "__main__":
 
     ##NEW AND UNTESTED
     parser.add_argument("-l","--ledger-filename",type=str,help="filename of ledger to use for this run")
+    parser.add_argument("-r", "--restart-failed", action="store_true",help="Restart failed jobs")
 
 
     args = parser.parse_args()
@@ -537,8 +570,10 @@ if __name__ == "__main__":
     verbose = args.verbose
     num_jobs = args.num_jobs
     status_only = args.status_only
-
-    ##NEW AND UNTESTED
+    ###
+    restart_failed = args.restart_failed
+    ###
+    
     ledger_filename = args.ledger_filename if args.ledger_filename else '__ledger__.csv'
 
     batch_runner = BatchRunner(
@@ -547,6 +582,9 @@ if __name__ == "__main__":
         num_jobs=num_jobs,
         status_only=status_only,
         ledger_filename=ledger_filename,
+        ###
+        restart_failed=restart_failed,
+        ###
     )
     batch_runner.MainLoop()
 

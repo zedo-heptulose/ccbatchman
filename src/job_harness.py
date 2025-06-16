@@ -96,7 +96,7 @@ class JobHarness:
         returns the job_state and geometry_state
         '''
         debug = kwargs.get('debug',False)
-        in_progress = True
+        in_progress = True # starts true.
         slurm_status = "N/A"
         slurm_read = False
 
@@ -115,7 +115,9 @@ class JobHarness:
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT
                                 )
-                output = processdata.stdout.decode('utf-8')
+                output = processdata.stdout.decode('utf-8')      
+                # print('---- in job_harness.update_status() ----')
+                # print(f'Squeue output: {output}')
                 if debug: print(f'Squeue output: {output}')
                 if re.search('error:',output):
                     if debug: print('gets to 1st if')
@@ -139,15 +141,19 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
         if not slurm_read:
             raise RuntimeError("Could not capture job status through squeue")
 
+        
+        # print(f" in progress? {in_progress}")
         if in_progress:
             if self.debug: print(f'slurm status:{slurm_status}')   
+            # print(f'slurm status:{slurm_status}')
+            # print('---- ----')
             if slurm_status == 'PD':
                 self.status = 'pending'
                 if self.debug: print("returning pending")
                 return
     
             elif slurm_status == 'R':
-                if self.debug: self.status = 'running'
+                self.status = 'running'
                 if self.debug: print("returning with running")
                 return
 
