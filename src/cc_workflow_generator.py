@@ -1,4 +1,6 @@
 """
+THE CODE IN THIS FILE IS AI SLOP, WRITTEN BY Claude 3.7
+
 CCBatchMan Workflow Generator
 
 This module provides a class-based interface for generating common computational chemistry workflows.

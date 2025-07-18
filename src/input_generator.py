@@ -65,10 +65,13 @@ class ORCAInput(CCInput):
             lines.append(f'{string.strip()}\n')
         lines.append('\n')
         for block in self.blocks:
+            # print('//// in ORCAInput block writing:')
             lines.append(f'%{block.strip()}\n')
             for line in self.blocks[block]:
                 lines.append(f' {line.strip()}\n')
+                # print(f' {line.strip()}\n')
             lines.append('end\n\n')
+            # print('end\n\n')
         lines.append('\n')
         return lines
 
@@ -115,7 +118,7 @@ class ORCAInput(CCInput):
             if self.debug: print(line)
             #TODO: MAKE THIS MORE FLEXIBLE TO MATCH WITH ALL ORCA SYNTAX
             if in_block_flag:
-                if re.match(r'\s*end',line,re.I):
+                if re.match(r'end',line,re.I):
                     self.blocks[temp_block[0]] = temp_block[1]
                     in_block_flag = False
                     temp_block[0] = ''
@@ -313,6 +316,67 @@ class GaussianInput(CCInput):
         
         self.title = self.title.strip()
         if self.debug: print(f"coordinates:\n{self.coordinates}")
+
+
+
+
+
+
+
+
+# class CRESTConstrainedInput(Input):
+#     def __init__(self):
+#         Input.__init__(self)
+#         self.extension = '.inp'
+#         self.basename = 'constraints'
+#         self.num_atoms = -1
+#         self.constrained_atoms = []
+    
+#     def write_file(self):
+#         constrained_atoms = self.constrained_atoms
+#         lines = []
+#         lines.append('$constrain \n')
+#         atoms_string = make_atom_number_string(self,constrained_atoms)
+            
+#         lines.append(f'  atoms: {atoms_string} \n')
+#         lines.append(f'  force constant=0.5 \n')
+#         lines.append(f'  reference=coord.ref \n')
+#         lines.append('$metadyn \n')
+
+#         not_constrained_atoms = [i (+1??) for i in range(self.num_atoms) if not i in constrained_atoms]
+#         metadyn_atoms_string = '  atoms:'
+#         metadyn_atoms_string += make_atom_number_string(self,not_constrained_atoms)
+#         metadyn_atoms_string += '\n'
+#         lines.append(metadyn_atoms_string)
+#         lines.append('$end \n')
+#         with open(os.path.join(self.directory,self.basename+self.extension),'r') as file:
+#             file.writelines(lines)
+#         ## now what?
+
+#     def make_atom_number_string(self,constrained_atoms):
+#         atoms_string = ''
+#         last_atom_no = -2
+#         dash_region = False
+#         print_number = True
+#         for i, atom_no in enumerate(constrained_atoms):
+#             if i == 0:
+#                 atoms_string += f'{atom_no}'
+#             elif atom_no == len(constrained_atoms) -1:
+#                 if dash_region:
+#                     atoms_string += f'-{atom_no}'
+#                 else:
+#                     atoms_string += f',{atom_no}'
+#             else:
+#                 if atom_no == last_atom_no+1:
+#                     dash_region = True
+#                 elif dash_region:
+#                     atoms_string += f'-{last_atom_no},{atom_no}'
+#                     dash_region = False
+#                 else:
+#                     atoms_string += f',{atom_no}'
+#             last_atom_no = atom_no
+#         return atoms_string        
+
 
 
 
@@ -745,9 +809,14 @@ class CRESTInputBuilder(InputBuilder):
             options.append(f"--{self.config['quick']}")
         if self.config['reopt']:
             options.append('--prop reopt')
-        
         if self.config['noreftopo']:
             options.append('--noreftopo')
+        
+        ### NEW 7/1/2025
+        if self.config.get('constrained_atoms',None):
+            options.append('--cinp constraints.inp')
+        ### NEW 7/1/2025
+        
             
         if type(self.config['other_keywords']) is list:
             for keyword in self.config['other_keywords']:
@@ -759,7 +828,31 @@ class CRESTInputBuilder(InputBuilder):
         return submit_line
 
     def build_input(self):
-        return None
+        # if not self.config('constrained_atoms',None):
+            return None
+            
+        # inp = CRESTConstrainedInput()
+        
+        # xyz_directory = self.config.get('xyz_directory',None) 
+        # xyz_filename = self.config.get('xyz_file',None)
+        # if not xyz_directory or not xyz_filename:
+        #     print('--------------------------------------')
+        #     print('in CRESTInputBuilder:')
+        #     print('xyz_directory or xyz_filename is False')
+        # with open(os.path.join(xyz_directory,xyz_filename),'r') as file:
+        #     lines = file.readlines()
+            
+        # inp.num_atoms =number = int(lines[0].strip())
+        # ### NEW 7/1/2025
+        # inp.constrained_atoms = self.config['constrained_atoms']
+        # return inp
+        
+        # ### some logic goes here
+
+        ### FINISH TOMORROW, out of time.
+
+        
+            
 
 
 

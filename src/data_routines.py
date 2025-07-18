@@ -1,834 +1,427 @@
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import data_routines
+import parse_tree_builders
+import parse_tree
+
+import progcheck
 import os
 import re
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
-import parse_tree
-import parse_tree_builders
+import file_parser
 import json
+import input_generator
+import restart_jobs
+import data_routines
+
+#most of these import statements are unnecessary.
+
+def get_reaction_energy(root,reaction_name,reactants,products,of_dir,sp_dir):
+    params = {'products':products,'reactants':reactants,'root_dir':root,
+              'root_basename':reaction_name,'opt_freq_dir':of_dir,
+              'singlepoint_dir':sp_dir,'debug':False}
+    tree = parse_tree_builders.SimpleThermoTreeBuilder(params).build()
+    tree.depth_first_parse()
+    return tree.data
 
 
-class ComputationalDataProcessor:
-    """
-    A class for processing computational chemistry data across various theoretical methods.
-    Handles reaction energies, benchmarking, and visualization of results.
-    """
-    
-    def __init__(self, root_dir, debug=False):
-        """
-        Initialize the data processor with a root directory.
-        
-        Parameters:
-        -----------
-        root_dir : str
-            Path to the root directory containing computational data
-        debug : bool
-            Whether to print debug information
-        """
-        self.root_dir = root_dir
-        self.debug = debug
-        
-    def get_reaction_energy(self, reaction_name, reactants, products, theory):
-        """
-        Calculate reaction energy for a given reaction.
-        
-        Parameters:
-        -----------
-        reaction_name : str
-            Name of the reaction
-        reactants : dict
-            Dictionary of reactants and their stoichiometric coefficients
-        products : dict
-            Dictionary of products and their stoichiometric coefficients
-        theory : str
-            Path to the theory level directory
-            
-        Returns:
-        --------
-        float
-            Reaction energy in kJ/mol
-        """
-        params = {
-            'products': products,
-            'reactants': reactants, 
-            'root_dir': self.root_dir,
-            'root_basename': reaction_name,
-            'singlepoint_dir': theory, 
-            'debug': self.debug
-        }
-        
-        tree = parse_tree_builders.SimpleETreeBuilder(params).build()
-        tree.depth_first_parse()
-        return tree.data['Delta_E_el_kj_mol-1']
-    
-    def get_reaction_free_energy(self, reaction_name, reactants, products, of_dir, sp_dir):
-        """
-        Calculate Gibbs free energy for a reaction.
-        
-        Parameters:
-        -----------
-        reaction_name : str
-            Name of the reaction
-        reactants : dict
-            Dictionary of reactants and their stoichiometric coefficients
-        products : dict
-            Dictionary of products and their stoichiometric coefficients
-        of_dir : str
-            Path to the optimization/frequency calculations
-        sp_dir : str
-            Path to the single point calculations
-            
-        Returns:
-        --------
-        float
-            Gibbs free energy in kcal/mol
-        """
-        params = {
-            'products': products,
-            'reactants': reactants,
-            'root_dir': self.root_dir,
-            'root_basename': reaction_name,
-            'opt_freq_dir': of_dir,
-            'singlepoint_dir': sp_dir,
-            'debug': self.debug
-        }
-        
-        tree = parse_tree_builders.SimpleThermoTreeBuilder(params).build()
-        tree.depth_first_parse()
-        return tree.data['Delta_G_kcal_mol-1']
-
-    def get_reaction_data(self, reaction_name, reactants, products, of_dir, sp_dir,debug=False):
-        if not debug:
-            debug = self.debug
-        params = {
-            'products': products,
-            'reactants': reactants,
-            'root_dir': self.root_dir,
-            'root_basename': reaction_name,
-            'opt_freq_dir': of_dir,
-            'singlepoint_dir': sp_dir,
-            'debug': debug,
-        }
-        
-        tree = parse_tree_builders.SimpleThermoTreeBuilder(params).build()
-        tree.depth_first_parse()
-        return tree.data
-
-
-    
-    def get_delta_E_vals(self, reactions, functional, basis_set):
-        """
-        Get reaction energies for multiple reactions at a specific level of theory.
-        
-        Parameters:
-        -----------
-        reactions : dict
-            Dictionary of reactions with their reactants and products
-        functional : str
-            Computational functional to use
-        basis_set : str
-            Basis set to use
-            
-        Returns:
-        --------
-        pandas.DataFrame
-            DataFrame containing reaction energies
-        """
-        list_rows = []
-        reactions_list = [{'name': name, 'reactants': val['reactants'], 'products': val['products']} 
-                          for name, val in reactions.items()]
-        
-        for reaction in reactions_list: 
-            reaction_name = reaction['name']
-            reactants = reaction['reactants']
-            products = reaction['products']
-            
-            theory = f"singlepoints/{functional}_{basis_set}"
-            
-            try:
-                reaction_energy = self.get_reaction_energy(reaction_name, reactants, products, theory)
-                row = pd.DataFrame({
-                    'reaction': [reaction_name],
-                    'functional': [functional],
-                    'basis_set': [basis_set],
-                    'ΔE_el_rxn(kcal/mol-1)': [reaction_energy],
-                })
-                list_rows.append(row)
-                      
-            except Exception as e:
-                if self.debug:
-                    print(f"{reaction_name} could not be parsed: {str(e)}")
-                row = pd.DataFrame({
-                    'reaction': [reaction_name],
-                    'functional': [functional],
-                    'basis_set': [basis_set],
-                    'ΔE_el_rxn(kcal/mol-1)': [np.nan],
-                })
-                list_rows.append(row)
-        
-        data = pd.concat(list_rows, axis=0, ignore_index=True)
-        return data
-
-    def calculate_deviations(self, functionals, basis_sets, reactions, reference_method='dlpno-ccsd_t', reference_basis='cbs'):
-        """
-        Calculate deviations of reaction energies from a reference method.
-        
-        Parameters:
-        -----------
-        functionals : list or dict
-            List or dict of computational functionals
-        basis_sets : list or dict
-            List or dict of basis sets
-        reactions : dict
-            Dictionary of reactions with their reactants and products
-        reference_method : str
-            Reference method to compare against
-        reference_basis : str
-            Reference basis set
-            
-        Returns:
-        --------
-        pandas.DataFrame
-            DataFrame containing MAD and RMSD values for each method
-        """
-        # If dictionaries are provided, extract the keys
-        if isinstance(functionals, dict):
-            functionals = list(functionals.keys())
-        if isinstance(basis_sets, dict):
-            basis_sets = list(basis_sets.keys())
-            
-        # Get reference data
-        reference_path = f"../{reference_method}" if reference_method.startswith("dlpno") else reference_method
-        cc_data = self.get_delta_E_vals(reactions, reference_path, reference_basis)
-        list_rows = []
-        
-        for functional in functionals:
-            for basis_set in basis_sets:
-                data = self.get_delta_E_vals(reactions, functional, basis_set)
-                data['ΔΔE_el_rxn(kcal/mol-1)'] = data['ΔE_el_rxn(kcal/mol-1)'] - cc_data['ΔE_el_rxn(kcal/mol-1)']
+def get_reaction_molecule_data(root,reactants,products,theory,exclude=[]):
+    molecule_list = []
+    theory_list = []
+    status_list = []
+    electronic_energy_list = []
+    energy_list = []
+    enthalpy_list = []
+    gibbs_list = []
+    for molecule in {**reactants,**products}.keys():    
+        if not os.path.exists(os.path.join(root,molecule,theory,theory+'.out')):
+            energy_list.append(np.nan)
+            enthalpy_list.append(np.nan)
+            gibbs_list.append(np.nan)
                 
-                # Filter out NaN values and extreme outliers
-                deviations = data[(data['ΔΔE_el_rxn(kcal/mol-1)'].notna()) & 
-                                 (data['ΔΔE_el_rxn(kcal/mol-1)'].abs() < 100)]['ΔΔE_el_rxn(kcal/mol-1)']
-                
-                # Calculate statistics
-                mad = deviations.abs().mean()
-                rmsd = (deviations**2).mean()**0.5
-                
-                if self.debug:
-                    print(f"Results for {functional}_{basis_set}:")
-                    print(f"MAD: {mad}")
-                    print(f"RMSD: {rmsd}")
-                    print(f"Sample size: {len(deviations)}")
-                    print()
-                
-                if len(deviations) < 3 and self.debug:
-                    print(f"Warning: Less than 3 data points for {functional}_{basis_set}")
-                    print(data)
-                
-                row = pd.DataFrame({
-                    'functional': [functional],
-                    'basis_set': [basis_set],
-                    'MAD': [mad],
-                    'RMSD': [rmsd],
-                    'sample_size': [len(deviations)]
-                })
-                list_rows.append(row)
-        
-        data = pd.concat(list_rows, axis=0, ignore_index=True)
-        return data
-    
-    def visualize_benchmark(self, functionals, basis_sets, data, metric='RMSD', 
-                            title="Error Magnitude for Different Methods", 
-                            cmap="viridis_r", vmax=20, save_path=None):
-        """
-        Create a heatmap visualization of benchmark results.
-        
-        Parameters:
-        -----------
-        functionals : list
-            List of functionals to include
-        basis_sets : list
-            List of basis sets to include
-        data : pandas.DataFrame
-            DataFrame containing benchmark results
-        metric : str
-            Metric to visualize (default: 'RMSD')
-        title : str
-            Plot title
-        cmap : str
-            Matplotlib colormap to use
-        vmax : float
-            Maximum value for color scale
-        save_path : str
-            Path to save the figure (if None, figure is not saved)
-            
-        Returns:
-        --------
-        matplotlib.figure.Figure
-            The created figure
-        """
-        outer_list = []
-        for functional in functionals:
-            inner_list = []
-            for basis_set in basis_sets:
-                value = data[(data['functional'] == functional) & 
-                             (data['basis_set'] == basis_set)][metric].iloc[0]
-                inner_list.append(value)    
-            outer_list.append(inner_list)
-        
-        errors = np.array(outer_list)
-        
-        # Create the heatmap
-        plt.figure(figsize=(7, 5))
-        im = plt.imshow(errors, cmap=cmap, aspect='equal')
-        
-        plt.clim(0, vmax)
-        # Add color bar
-        cbar = plt.colorbar(im)
-        cbar.set_label(f"{metric} (kcal/mol)")
-        
-        # Customize axes
-        plt.xticks(ticks=np.arange(len(basis_sets)), labels=basis_sets, rotation=90)
-        plt.yticks(ticks=np.arange(len(functionals)), labels=functionals)
-        plt.xlabel("Basis Sets")
-        plt.ylabel("Functionals")
-        plt.title(title)
-        
-        # Add annotations to each cell
-        for i in range(errors.shape[0]):
-            for j in range(errors.shape[1]):
-                plt.text(j, i, f"{errors[i, j]:.1f}", 
-                         ha="center", va="center", 
-                         color="white" if errors[i, j] > vmax/3 else "black")
-        
-        plt.tight_layout()
-        
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            
-        return plt.gcf()
+            molecule_list.append(molecule)
+            theory_list.append(theory)
+            status_list.append('nonexistent')
+            electronic_energy_list.append(np.nan)
+            # print(f'{molecule} does not exist')
+            continue
+            # raise ValueError('nonsense directory')
+        if molecule in exclude:
+            continue
 
-    def analyze_bde_dataframe(self,bond_type,molecule_data,energy_data,
-                             solvent='water',title=None,
-                             ylim=(0,120), save_path=None,
-                              debug=False):
-        if title is None:
-            title = f"{bond_type} Bond Dissociation Energies | {sp_dir}//{of_dir}"
+        if os.path.exists(os.path.join(root,molecule,theory,'run_info.json')):# brutal hotfix, pls change
+            with open(os.path.join(root,molecule,theory,'run_info.json'),'r') as run_info_file:
+                run_info_data = json.load(run_info_file)
+            status = run_info_data['status']
+        else:
+            status = 'succeeded' # brutal.
             
-        plt.figure(figsize=(10, 6))
+        parseleaf = parse_tree.ParseLeaf()
+        parseleaf.directory = os.path.join(root,molecule,theory)
+        parseleaf.basename = theory
+        parseleaf.parse_data()
+        data = parseleaf.data
+        try:
+            if data.get('E_au',None):
+                energy_list.append(data['E_au'])
+                enthalpy_list.append(data['H_au'])
+                gibbs_list.append(data['G_au'])
+            else:
+                energy_list.append(np.nan)
+                enthalpy_list.append(np.nan)
+                gibbs_list.append(np.nan)
+                
+            molecule_list.append(molecule)
+            theory_list.append(theory)
+            status_list.append(status)
+            electronic_energy_list.append(data['E_el_au'])
+        except:
+            print(f"{molecule} | {theory}")
+            print(data)
+    data_df = pd.DataFrame({
+        'molecule' : molecule_list,
+        'theory' : theory_list,
+        'status' : status_list,
+        'E_el_au' : electronic_energy_list,
+        'E_au' : energy_list,
+        'H_au' : enthalpy_list,
+        'G_au' : gibbs_list,
+    })
+    return data_df
 
-        if not solvent:
-            solvent = 'gas'
 
-        outer_molecule_list = []
-        outer_df_list = []
-        for data in molecule_data:
-            df_list = []
-            middle_molecule_list = []
-            for i in range(0, 8):
-                reaction_name = 'scratch'
-                if i < 7:
-                    if bond_type == 'C-C':
-                        products = {
-                            f"_{solvent}_{data[1]}_{data[0]}_CF2_{i}_CF2": 1,
-                            f"_{solvent}_{data[2]}_CF3_CF2_{6-i}": 1,
-                        }
-                        reactants = {
-                            f"_{solvent}_{data[3]}_{data[0]}_CF2_{7}_CF3": 1,
-                        }
-                    elif bond_type == 'C-F':
-                        products = {
-                            f"_{solvent}_{data[1]}_{data[0]}_CF2_{i}_CF_CF2_{6-i}_CF3": 1,
-                            "_water_0_2_f": 1,
-                        }
-                        reactants = {
-                            f"_{solvent}_{data[3]}_{data[0]}_CF2_{7}_CF3": 1,
-                        }
+def show_reaction_structures(root,reaction,theory):
+    reactants = reaction[0]
+    products = reaction[1]
+    print('---------------------')
+    print('reactants')
+    for reactant in reactants.keys():
+        try:
+            path = os.path.join(root,reactant,theory,f'{theory}.xyz')
+            print(f'{reactant} | {theory}')
+            mol.Molecule(path).show()
+        except:
+            print(f'could not show: {reactant}')
+    print('products')
+    for product in products.keys():
+        try:
+            path = os.path.join(root,product,theory,f'{theory}.xyz')
+            print(f'{product} | {theory}')
+            mol.Molecule(path).show()
+        except:
+            print(f'could not show" {product}')
+    print('----------------------')
+
+
+def get_molecule_data(root,reactions,theory,exclude=[],show_structures=False):
+    df_list = []
+    for name, reaction in reactions.items():
+        if show_structures:
+            show_reaction_structures(root,reaction,theory)
+        data_df = get_reaction_molecule_data(root,reaction[0],reaction[1],theory,exclude)
+        df_list.append(data_df)
+        
+    cumulative_df = pd.concat(df_list)
+    cumulative_df.drop_duplicates(subset=['molecule','theory'], keep='first', inplace=True, ignore_index=True)
+    cumulative_df.index = range(len(cumulative_df))
+    return cumulative_df
+
+def merge_data(data_1,data_2,force_merge = []):
+    df_1 = data_1.copy()
+    df_2 = data_2.copy()
+    for i,row in df_1.iterrows():
+        molecule = row['molecule']
+        theory = row['theory']
+        status = row['status']
+        if status != 'succeeded' or molecule in force_merge:
+            print(status)
+            for j,row in df_2.iterrows():
+                molecule_2 = row['molecule']
+                theory_2 = row['theory']
+                status_2 = row['status']
+                if molecule == molecule_2: # what do we do with theory though?
+                    if status_2 == 'succeeded':
+                        df_1.loc[i] = df_2.loc[j]
+                    elif status == 'nonexistent':
+                        df_1.loc[i] = df_2.loc[j]
                     else:
-                        raise ValueError(f"Unsupported bond type: {bond_type}")
-                elif i == 7:
-                    if bond_type == 'C-C':
-                        break
-                    if bond_type == 'C-F':
-                        products = {
-                            f"_{solvent}_{data[1]}_{data[0]}_CF2_7_CF2": 1,
-                            "_water_0_2_f": 1,
-                        }
-                        reactants = {
-                            f"_{solvent}_{data[3]}_{data[0]}_CF2_7_CF3": 1,
-                        }
-                    else:
-                        pass
+                        print(f"{molecule} | failed for both {theory} and {theory_2}")
+    return df_1
 
-                reactants_G = 0
-                reactants_H = 0
-                reactants_Esp = 0
-                for species in reactants.keys():
-                    if len(energy_data[energy_data['molecule'] == species]) == 0:
-                        print(f'not found in dataframe: {species}')
-                    G  = energy_data[energy_data['molecule'] == species]['G (kcal/mol)'].iloc[0]
-                    H  = energy_data[energy_data['molecule'] == species]['H (kcal/mol)'].iloc[0]
-                    Esp= energy_data[energy_data['molecule'] == species]['E (singlepoint) (kcal/mol)'].iloc[0]
-                    reactants_G += G
-                    reactants_H += H
-                    reactants_Esp += Esp
-    
-                products_G = 0
-                products_H = 0 
-                products_Esp = 0
-                for species in products.keys():
-                    if len(energy_data[energy_data['molecule'] == species]) == 0:
-                        print(f'not found in dataframe: {species}')
-                    G  = energy_data[energy_data['molecule'] == species]['G (kcal/mol)'].iloc[0]
-                    H  = energy_data[energy_data['molecule'] == species]['H (kcal/mol)'].iloc[0]
-                    Esp= energy_data[energy_data['molecule'] == species]['E (singlepoint) (kcal/mol)'].iloc[0]
-                    products_G += G
-                    products_H += H
-                    products_Esp += Esp
 
-                reaction_DeltaG   = products_G - reactants_G
-                reaction_DeltaH   = products_H - reactants_H
-                reaction_DeltaEsp = products_Esp - reactants_Esp
+def replace_data(normal_data,constrained_data):
+    df_n = normal_data.copy()
+    df_c = constrained_data.copy()
+    for i, row in df_n.iterrows():
+        molecule = row['molecule']
+        for j, row_2 in df_c.iterrows():
+            molecule_2 = row_2['molecule']
+            if molecule == molecule_2:
+                df_n.loc[i] = df_c.loc[j]
+    return df_n
 
-                bond_index = i + 1
-                df_temp = pd.DataFrame({
-                    f'{bond_type.lower()}_bond': [bond_index],
-                    'Delta G (kcal/mol)': [reaction_DeltaG],
-                    'Delta H (kcal/mol)' : [reaction_DeltaH],
-                    'Delta E (singlepoint) (kcal/mol)' : [reaction_DeltaEsp],
-                    'head_frag': [f"{data[0]}_{data[3]}"],
-                })
-                df_list.append(df_temp)
-                
-            df = pd.concat(df_list)
+
+def get_reaction_data(molecule_df,reactions,debug=False):
+    df_list = []
+    energy_types = ['E_el_au','E_au','H_au','G_au']
+    conversions = {'kcal/mol':627.51}
+    for reaction_name, reaction in reactions.items():
+        good_data = True
+        reactants = reaction[0]
+        products = reaction[1]
+        energy_data = {}
+        for energy_type in energy_types:
+            energy_data[energy_type] = 0
             
-            x = df[f'{bond_type.lower()}_bond']
-            y = df['Delta G (kcal/mol)']
-            plt.plot(x, y, label=df['head_frag'].iloc[0].replace('_', ' '))
-
-        plt.title(title)
-        plt.ylabel('Delta G (kcal/mol)')
-        plt.xlabel('Bond index')
-        plt.ylim(ylim)
-        plt.legend()
-        
-        if save_path:
-            if save_path.endswith('/'):
-                # Create a filename based on the title
-                filename = re.sub(r'[^+0-9A-Za-z]', '', title).lower()
-                save_path = f"{save_path}{filename}.png"
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-
+            for reactant, coefficient in reactants.items():
+                if debug: print(reactant)
+                if (molecule_df['molecule']==reactant).sum() == 0:
+                    print(reactant)
+                    print('oh no!')
+                if not molecule_df[molecule_df['molecule']==reactant].iloc[0]['status'] == 'succeeded':
+                    good_data = False
+                if debug: print(molecule_df[molecule_df['molecule']==reactant].iloc[0])
+                energy_data[energy_type] -= molecule_df[molecule_df['molecule']==reactant].iloc[0][energy_type] * coefficient
             
-
-    
-    def analyze_bond_dissociation(self, bond_type, molecule_data, of_dir, sp_dir,
-                                  solvent='water',title=None, 
-                                  ylim=(-10, 120), save_path=None,
-                                  ignore=None,
-                                 debug=False,
-                                 strict=False):
-        """
-        Analyze and visualize bond dissociation energies.
-        
-        Parameters:
-        -----------
-        bond_type : str
-            Type of bond ('C-C' or 'C-F')
-        molecule_data : list
-            List of tuples with molecule information
-        of_dir : str
-            Optimization/frequency directory
-        sp_dir : str
-            Single point calculation directory
-        title : str
-            Plot title (if None, a default title is generated)
-        ylim : tuple
-            Y-axis limits
-        save_path : str
-            Path to save the figure (if None, figure is not saved)
-        ignore: list
-            Molecules not to parse output for, ignore reactions containing these molecules
-        debug: bool
-            print verbose output of intermediate operations for debugging
-        strict: bool
-            if True, raises an exception if molecule output cannot be parsed; if False, simply ignores reactions with molecules whose output files cannot be parsed
-            
-        Returns:
-        --------
-        matplotlib.figure.Figure
-            The created figure
-        """
-        reactions = []
-        
-        if title is None:
-            title = f"{bond_type} Bond Dissociation Energies | {sp_dir}//{of_dir}"
-            
-        plt.figure(figsize=(10, 6))
-
-        if not solvent:
-            solvent = 'gas'
-
-        fail_cases = []
-        if not ignore:
-            ignore = []
-        
-        outer_molecule_list = []
-        outer_df_list = []
-        for data in molecule_data:
-            df_list = []
-            middle_molecule_list = []
-            for i in range(0, 8):
-                if data[3] == '0_1':
-                    descriptor = 'protonated'
-                if data[3] == '-1_1':
-                    descriptor = 'deprotonated'
-                if data[3] == '-1_2':
-                    descriptor = 'protonated-radical-anion'
-                if data[3] == '-2_2':
-                    descriptor = 'deprotonated-radical-dianion'
-                
-                if bond_type == 'C-C':
-                    reaction_name = f'CC-BDE-{i+1}-{descriptor}'
-                elif bond_type == 'C-F':
-                    reaction_name = f'CF-BDE-{i+1}-{descriptor}'
-                if i < 7:
-                    if bond_type == 'C-C':
-                        products = {
-                            f"_{solvent}_{data[1]}_{data[0]}_CF2_{i}_CF2": 1,
-                            f"_{solvent}_{data[2]}_CF3_CF2_{6-i}": 1,
-                        }
-                        reactants = {
-                            f"_{solvent}_{data[3]}_{data[0]}_CF2_{7}_CF3": 1,
-                        }
-                    elif bond_type == 'C-F':
-                        products = {
-                            f"_{solvent}_{data[1]}_{data[0]}_CF2_{i}_CF_CF2_{6-i}_CF3": 1,
-                            "_water_0_2_f": 1,
-                        }
-                        reactants = {
-                            f"_{solvent}_{data[3]}_{data[0]}_CF2_{7}_CF3": 1,
-                        }
-                    else:
-                        raise ValueError(f"Unsupported bond type: {bond_type}")
-                elif i == 7:
-                    if bond_type == 'C-C':
-                        break
-                    if bond_type == 'C-F':
-                        products = {
-                            f"_{solvent}_{data[1]}_{data[0]}_CF2_7_CF2": 1,
-                            "_water_0_2_f": 1,
-                        }
-                        reactants = {
-                            f"_{solvent}_{data[3]}_{data[0]}_CF2_7_CF3": 1,
-                        }
-                    else:
-                        pass
-                
-                molecule_energy_list = []
-                if len(data) == 5 :
-                    suffix = data[4]
-                else:
-                    suffix = ''
-                temp_sp_dir = sp_dir + suffix
-                temp_of_dir = of_dir + suffix
-                ignore_reaction = False
-                fail_case = False
-
-
-                for species in {**reactants, **products}.keys():
-                    try:
-                        if ignore:
-                            if species in ignore:
-                                ignore_reaction = True
-                                continue
-                    #parse energies
-                        pnode = parse_tree.CompoundNode(species,temp_of_dir,temp_sp_dir,self.root_dir,recursive=True)
-                        # pnode.debug = True
-                        pnode.parse_data()
-                        gibbs = pnode.data['G_au'] 
-                        enthalpy = pnode.data['H_au']
-                        energy = pnode.data['E_au'] 
-                        sp_energy = pnode.data['E_el_au']
-                        mol_df_temp = pd.DataFrame({
-                            f'molecule': [species],
-                            'G (au)' : [gibbs],
-                            'G (kcal/mol)': [gibbs * 627.5],
-                            'H (au)' : [enthalpy],
-                            'H (kcal/mol)' : [enthalpy * 627.5],
-                            'E (au)' : [energy],
-                            'E (kcal/mol)' : [energy * 627.5],
-                            'E (singlepoint) (au)' : [sp_energy],
-                            'E (singlepoint) (kcal/mol)' : [sp_energy * 627.5]
-                        })
+            for product, coefficient in products.items():
+                if debug: print(product)
+                if (molecule_df['molecule']==product).sum() == 0:
+                    print(product)
+                    print('oh no!')
+                if debug: print(molecule_df[molecule_df['molecule']==product].iloc[0])
+                energy_data[energy_type] += molecule_df[molecule_df['molecule']==product].iloc[0][energy_type] * coefficient
+                if not molecule_df[molecule_df['molecule']==product].iloc[0]['status'] == 'succeeded':
+                    good_data = False
                     
-                        molecule_energy_list.append(mol_df_temp)
-                
-                    except:
-                        # if debug:
-                        print('----------------------')
-                        print('parse failed.')
-                        print(f'species: {species}')
-                        print('----------------------')
-                            
-                        fail_case = True
-                        fail_cases.append(species)
-                        # ignore.append(species)
-                        if strict: # this will raise an error, since this occasioned stepping into the except block.
-                            # we run it with verbose debug output in this statement however
-                            reaction_data = self.get_reaction_data(reaction_name, reactants, products, temp_of_dir, temp_sp_dir,debug=True)
+            for unit, proportion in conversions.items():
+                energy_data[f"{energy_type[:-3]}_{unit}"] = energy_data[energy_type] * proportion
+                energy_data[f"{energy_type[:-3]}_{unit}"] = [energy_data[f"{energy_type[:-3]}_{unit}"]] # for making dataframe
+            energy_data[energy_type] = [energy_data[energy_type]] # for making dataframe
+            
+        energy_df = pd.DataFrame(energy_data)
+        energy_df['reaction_name'] = [reaction_name]
+        energy_df['all_succeeded'] = good_data
+        df_list.append(energy_df)
+    data = pd.concat(df_list)
+    data.index = range(len(data))
+    return data
 
-                if len(molecule_energy_list) != 0:
-                    molecule_energy_df = pd.concat(molecule_energy_list) 
-                middle_molecule_list.append(molecule_energy_df)
+def merge_constrained_data(normal_data,constrained_data):
+    df_n = normal_data.copy()
+    df_c = constrained_data.copy()
+    for i, row in df_n.iterrows():
+        molecule = row['molecule']
+        for j, row_2 in df_c.iterrows():
+            molecule_2 = row_2['molecule']
+            if molecule == molecule_2:
+                df_n.loc[i] = df_c.loc[j]
+    return df_n
 
-                
-                if not ignore_reaction and not fail_case:
-                    reaction_data = self.get_reaction_data(reaction_name, reactants, products, temp_of_dir, temp_sp_dir)
-                    delta_g = reaction_data['Delta_G_au']
-                    delta_h = reaction_data['Delta_H_au']
-                    delta_e = reaction_data['Delta_E_au']
-                    delta_e_sp = reaction_data['Delta_E_el_au']
-                    bond_index = i + 1
-                    df_temp = pd.DataFrame({
-                        f'{bond_type.lower()}_bond': [bond_index],
-                        'Delta G (au)' : [delta_g],
-                        'Delta G (kcal/mol)': [delta_g * 627.5],
-                        'Delta H (au)' : [delta_h],
-                        'Delta H (kcal/mol)' : [delta_h * 627.5],
-                        'Delta E (au)' : [delta_e],
-                        'Delta E (kcal/mol)' : [delta_e * 627.5],
-                        'Delta E (singlepoint) (au)' : [delta_e_sp],
-                        'Delta E (singlepoint) (kcal/mol)' : [delta_e_sp * 627.5],
-                        'head_frag': [f"{data[0]}_{data[3]}"]
-                    })
-                    df_list.append(df_temp)
-                else:
-                    reaction_data = None # see what this does lol
+
+def get_data_chains(start_index,end_index,meta_reactions,
+                    root_dir,normal_dir,normal_theory,
+                    backup_dir=None, backup_theory=None,
+                    constrained_dir=None,constrained_theory=None,
+                    force_merge = []
+                   ):
+    '''
+    specific case of processing data for the alcohol cycle data set
+    '''
+    energy_dfs = []
+    status_dfs = []
+    for i in range(start_index,end_index+1):
+        key = f"chain_{i}"
+        reactions = meta_reactions[key]
+        reaction_names = reactions.keys()
+        
+        normal_root = os.path.join(root_dir,normal_dir)
+        data = get_molecule_data(normal_root,reactions,normal_theory)
+
+        if backup_dir and backup_theory:
+            backup_root = os.path.join(root_dir,backup_dir)
+            backup_data = get_molecule_data(backup_root,reactions,backup_theory)
+            data = merge_data(data,backup_data,force_merge)
+
+        if constrained_dir and constrained_theory:
+            constrained_root = os.path.join(root_dir,constrained_dir)
+            constrained_data = get_molecule_data(constrained_root,reactions,constrained_theory)
+            constrained_data = constrained_data.dropna(thresh=4)
+        
+            data = replace_data(data,constrained_data)
+        
+        single_chain_df = get_reaction_data(data,reactions)
+        keys = single_chain_df['reaction_name']
+        
+        single_chain_df = single_chain_df.set_index(single_chain_df['reaction_name'])
+        single_energy_df = single_chain_df[['E_el_kcal/mol']].T
+        single_energy_df['chain_length'] = i
+
+        single_status_df = single_chain_df[['all_succeeded']].T
+        single_status_df['chain_length'] = i
+        
+        energy_dfs.append(single_energy_df)
+        status_dfs.append(single_status_df)
+        
+    all_energy_data = pd.concat(energy_dfs)
+    all_energy_data.index = range(len(all_energy_data))
+
+    all_status_data = pd.concat(status_dfs)
+    all_status_data.index = range(len(all_status_data))
     
-                reactions.append((tuple(reactants),tuple(products),reaction_data,reaction_name))
-                
+    return all_energy_data, all_status_data
 
-                
-            middle_molecule_df = pd.concat(middle_molecule_list)
-            outer_molecule_list.append(middle_molecule_df)
 
-            if len(df_list) != 0:
-                df = pd.concat(df_list)
-                x = df[f'{bond_type.lower()}_bond']
-                y = df['Delta G (kcal/mol)']
-                outer_df_list.append(df)
-                plt.plot(x, y, label=df['head_frag'].iloc[0].replace('_', ' '))
 
-        outer_molecule_df = pd.concat(outer_molecule_list)
-        outer_molecule_df = outer_molecule_df.drop_duplicates(subset=['molecule'])
-        outer_molecule_df.index = range(0,len(outer_molecule_df))
-        if len(outer_df_list) != 0: 
-            outer_df = pd.concat(outer_df_list)
-            outer_df.index = range(0,len(outer_df))
+def reaction_data_routine(reactions,root_dir,molecule_dirs,
+                         backup_dirs=None,
+                         replace_dirs=None,
+                         force_merge=[]):
+    '''
+    general case for processing reaction data
+    force_merge is a list of molecules in the backup directory that we
+    treat as being in the replace directory
+    '''
+    reaction_names = reactions.keys()
+
+    normal_dir = molecule_dirs[0]
+    normal_theory = molecule_dirs[1]
+    normal_root = os.path.join(root_dir,normal_dir)
+    data = get_molecule_data(normal_root,reactions,normal_theory)
+
+    if backup_dirs:
+        backup_dir = backup_dirs[0]
+        backup_theory = backup_dirs[1]
+        backup_root = os.path.join(root_dir,backup_dir)
+        backup_data = get_molecule_data(backup_root,reactions,backup_theory)
+        data = merge_data(data,backup_data,force_merge)
+
+    if replace_dirs:
+        replace_dir = replace_dirs[0]
+        replace_theory = replace_dirs[1]
+        replace_root = os.path.join(root_dir,replace_dir)
+        replacement_data = get_molecule_data(replace_root,reactions,replace_theory)
+        replacement_data = replacement_data.dropna(thresh=4)
+    
+        data = replace_data(data,replacement_data)
+    
+    return get_reaction_data(data,reactions)
+
+
+
+def plot_enumerated_reactions(reactions,reaction_data,title):
+    reaction_names = reactions.keys()
+    # filter out common part without index
+    name_roots = set()
+    indices = set()
+    print('iterating through reaction names, finding number')
+    for name in reaction_names:
+        name_no_number= re.sub(r'\d+','',name)
+        name_roots.add(name_no_number)
+        match = re.search(r'\d+',name)
+        if match:
+            number = int(match.group(0))
+            indices.add(number)
+            # print(number)
         else:
-            outer_df = None
-        plt.title(title)
-        plt.ylabel('Delta G (kcal/mol)')
-        plt.xlabel('Bond index')
-        plt.ylim(ylim)
-        plt.legend()
-        
-        if save_path:
-            if save_path.endswith('/'):
-                # Create a filename based on the title
-                filename = re.sub(r'[^+0-9A-Za-z]', '', title).lower()
-                save_path = f"{save_path}{filename}.png"
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-
-        return outer_df, outer_molecule_df, fail_cases, reactions
-
+            print('number not found?')
+            print(name)
+            print(name_no_number)
+    indices = list(indices)
+    indices.sort()
+    # print(indices,sep='\n')
+    name_roots = list(name_roots)
+    # print(name_roots,sep='\n')
     
-
-    def make_reactions(self, acid_heads, base_heads):
-        """
-        Generate a dictionary of reactions based on acid and base heads.
-        
-        Parameters:
-        -----------
-        acid_heads : list
-            List of acid head groups
-        base_heads : list
-            List of base head groups
-            
-        Returns:
-        --------
-        dict
-            Dictionary of generated reactions
-        """
-        reactions = {}
-        
-        # Generate acid reactions
-        for acid_head in acid_heads:
-            acid_reaction_set = {
-                f"{acid_head}_anion_C2_F1_BDE_hf": {
-                    'reactants': {f"-1_2_{acid_head}_CF2_CF3": 1},
-                    'products': {f"0_2_{acid_head}_CF_CF3": 1, f"-1_1_f": 1},
-                },
-                f"{acid_head}_anion_C2_F2_BDE_hf": {
-                    'reactants': {f"-1_2_{acid_head}_CF2_CF3": 1},
-                    'products': {f"0_2_{acid_head}_CF2_CF2": 1, f"-1_1_f": 1},
-                },
-                f"{acid_head}_anion_C1_F1_BDE_hf": {
-                    'reactants': {f"-1_2_{acid_head}_CF3": 1},
-                    'products': {f"0_2_{acid_head}_CF2": 1, f"-1_1_f": 1},
-                },
-                f"{acid_head}_anion_C2_F1_BDE": {
-                    'reactants': {f"-1_2_{acid_head}_CF2_CF3": 1},
-                    'products': {f"-1_1_{acid_head}_CF_CF3": 1, f"0_2_f": 1},
-                },
-                f"{acid_head}_anion_C2_F2_BDE": {
-                    'reactants': {f"-1_2_{acid_head}_CF2_CF3": 1},
-                    'products': {f"-1_1_{acid_head}_CF2_CF2": 1, f"0_2_f": 1},
-                },
-                f"{acid_head}_anion_C1_F1_BDE": {
-                    'reactants': {f"-1_2_{acid_head}_CF3": 1},
-                    'products': {f"-1_1_{acid_head}_CF2": 1, f"0_2_f": 1},
-                },
-            }
-            reactions.update(acid_reaction_set)
-
-        # Generate base reactions (currently empty in your original code)
-        for base_head in base_heads:
-            base_reaction_set = {}  # You can add base reaction definitions here
-            reactions.update(base_reaction_set)
-            
-        return reactions
+    fig, ax = plt.subplots()
+    first = True
+    for root in name_roots:
+        print('found root:')
+        print(root)
+        enumerated_names = [ root + str(i) for i in indices] 
+        print('enumerated names:')
+        # print(enumerated_names,sep='\n')
+        electronic_energies = []
+        for name in enumerated_names:
+            row = find_row(reaction_data,name)
+            electronic_energies.append(row['E_el_kcal/mol'])
+        ax.plot(indices,electronic_energies,label=root)
     
-    def get_molecule_data_for_bde_analysis(self,suffixes=None):
-        """
-        Get predefined molecule data for bond dissociation energy analysis.
-        
-        Returns:
-        --------
-        list
-            List of tuples with molecule information
-        """
-        if not suffixes:
-            return [
-                ('HSO3', '0_2', '0_2', '0_1'),
-                ('HSO3', '-1_1', '0_2', '-1_2'),
-                ('SO3', '-1_2', '0_2', '-1_1'),
-                ('SO3', '-2_1', '0_2', '-2_2')
-            ]
-        elif suffixes:
-            if len(suffixes) != 4:
-                raise ValueError('list of suffixes must be as long as list of templates')
-            return [
-                ('HSO3', '0_2', '0_2', '0_1',suffixes[0]),
-                ('HSO3', '-1_1', '0_2', '-1_2',suffixes[1]),
-                ('SO3', '-1_2', '0_2', '-1_1',suffixes[2]),
-                ('SO3', '-2_1', '0_2', '-2_2',suffixes[3])
-            ]
+    # ax.axvspan(xmin=0, xmax=4.5, facecolor='red', alpha=0.2)
+    xmin = min(indices)
+    xmax = max(indices)
+    ax.set_xticks(range(xmin,xmax+1))
+    ax.set_xlim(xmin-0.5,xmax +0.5)
+    ax.tick_params(axis='x', labelsize=20) # Adjust x-axis tick label size
+    ax.tick_params(axis='y', labelsize=20) # Adjust y-axis tick label size
+    ax.set_title(title,fontsize=20)
+    ax.set_xlabel('Chain Length (no. carbons)',fontsize=16)
+    ax.set_ylabel('$\Delta{}E_0$ (kcal/mol)',fontsize=16)
+    # ax.set_ylim(-100,100)
+    ax.axhspan(ymin=-120,ymax=0,facecolor='grey',alpha=0.2)
+    ax.axhline(y=0, color='black', linestyle='-')
+        # fig.savefig(f'chemdraw_figure_images/{reaction_name}.png',bbox_inches='tight') 
+    ax.legend()
+    fig.show()
+# ----------
 
-        else: 
-            print('how')
-    
-    def get_method_data(self):
-        """
-        Get predefined computational method information.
-        
-        Returns:
-        --------
-        tuple
-            Tuple containing functional sets and basis sets dictionaries
-        """
-        our_functionals = {
-            'B3LYP': {'functional': 'B3LYP'},
-            'B3LYP-D4': {'functional': 'B3LYP', 'dispersion_correction': 'D4'},
-            'M062X': {'functional': 'm062x'},
-            'M062X-D3ZERO': {'functional': 'm062x', 'dispersion_correction': 'D3ZERO'},
-        }
-        
-        our_basis_sets = {
-            '6-31+Gdp': {'basis': '6-31+G(d,p)'},
-            '6-31++Gdp': {'basis': '6-31++G(d,p)'},
-            '6-311+Gdp': {'basis': '6-311+G(d,p)'},
-            '6-311++Gdp': {'basis': '6-311++G(d,p)'},
-        }
-        
-        other_functionals = {
-            'wB97X-D4': {'functional': 'wB97X-D4'},
-            'wB97X-V': {'functional': 'wB97X-V'},
-            'PW6B95-D4': {'functional': 'PW6B95', 'dispersion_correction': 'D4'},
-            'B3LYP-D4': {'functional': 'B3LYP', 'dispersion_correction': 'D4'},
-            'M062X-D3ZERO': {'functional': 'M062X', 'dispersion_correction': 'D3ZERO'},
-            'B97-D4': {'functional': 'B97', 'dispersion_correction': 'D4'},
-            'r2SCAN-D4': {'functional': 'r2SCAN', 'dispersion_correction': 'D4'},
-            'revPBE-D4': {'functional': 'revPBE', 'dispersion_correction': 'D4'},
-            'OLYP-B4': {'functional': 'OLYP', 'dispersion_correction': 'D4'}
-        }
-        
-        other_basis_sets = {
-            'ma-def2-SVp': {'basis': 'ma-def2-SV(P)'},
-            'ma-def2-SVP': {'basis': 'ma-def2-SVP'},
-            'ma-def2-TZVP': {'basis': 'ma-def2-TZVP'},
-            'ma-def2-TZVPP': {'basis': 'ma-def2-TZVPP'},
-            'ma-def2-QZVPP': {'basis': 'ma-def2-QZVPP'},
-            'def2-SVPD': {'basis': 'def2-SVPD'},
-            'def2-TZVPD': {'basis': 'def2-TZVPD'},
-            'def2-TZVPPD': {'basis': 'def2-TZVPPD'},
-            'def2-QZVPPD': {'basis': 'def2-QZVPPD'},
-        }
-        
-        return (our_functionals, our_basis_sets, other_functionals, other_basis_sets)
+def find_row(reaction_data,reaction_name):
+    condition = (reaction_data['reaction_name'] == reaction_name)
+    if condition.sum() == 0:
+        return None
+    elif condition.sum() == 1:
+        return reaction_data[condition].iloc[0]
+    else:
+        raise ValueError('reaction data contains multiple reactions with the same name')
 
 
-# Modify parse_tree.py to handle electronic energy calculations more efficiently
-def enhance_parse_tree():
-    """
-    Function to modify ParseTree class with enhanced energy handling capabilities.
-    This would modify the actual ParseTree class if implemented.
-    
-    NOTE: This is a template for suggested modifications to parse_tree.py
-    """
-    # Add a new method to ThermoNode class
-    def electronic_energy_only(self, data):
-        """
-        Calculate only electronic energies for reactions.
-        
-        Parameters:
-        -----------
-        data : dict
-            Dictionary containing energy data
-            
-        Returns:
-        --------
-        dict
-            Dictionary containing only electronic energy data
-        """
-        products_label = 'product'
-        reactants_label = 'reactant'
-        delta_label = 'Delta'
-        reaction_data = {}
-        
-        # Only consider electronic energy
-        energy_type = 'E_el_au'
-        
-        for key in self.coefficients:
-            product_or_reactant = self.coefficients[key][0]
-            reaction_coefficient = self.coefficients[key][1]
-            new_key = f"{product_or_reactant}_{energy_type}"
-            energy = self.children[key].data.get(energy_type, None)
-            
-            if energy and (reaction_data.get(new_key, 0) is not None):
-                reaction_data[new_key] = reaction_data.get(new_key, 0) + reaction_coefficient * energy
-            else:    
-                reaction_data[new_key] = None
-        
-        product_energy = reaction_data[f"{products_label}_{energy_type}"]
-        reactant_energy = reaction_data[f"{reactants_label}_{energy_type}"]
-        
-        if product_energy and reactant_energy:
-            reaction_data[f"{delta_label}_{energy_type}"] = product_energy - reactant_energy
+def plot_energy_vs_chain_length_multiple(reactions,figure_data,validation_data,title):  
+    fig, ax = plt.subplots()
+    first = True
+    for reaction_name, reaction_label in reactions:  
+        error_condition = (validation_data[reaction_name]==False)
+        error_chain_lengths = figure_data['chain_length'][error_condition]
+        error_energies = figure_data[reaction_name][error_condition]
+        if first:
+            ax.scatter(error_chain_lengths,error_energies,color='red',label='calculation error',s=100,alpha=0.5)
+            first = False
         else:
-            reaction_data[f"{delta_label}_{energy_type}"] = np.nan
-            
-        return reaction_data
+            ax.scatter(error_chain_lengths,error_energies,color='red',s=100,alpha=0.5)
+
+        
+        if 'upconversion' in reaction_name:
+            ax.plot(figure_data['chain_length'],figure_data[reaction_name],
+                    label=reaction_label,color='black',lw=3)
+        else:
+            ax.plot(figure_data['chain_length'],figure_data[reaction_name],
+                    label=reaction_label,lw=2)
+        
+        # success_condition = (validation_data[reaction_name]==True)
+        # valid_chain_lengths = figure_data['chain_length'][success_condition]
+        # valid_energies = figure_data[reaction_name][success_condition]
+        # ax.scatter(valid_chain_lengths,valid_energies,color='lime',)
+        
+        # y = np.full(5,5)
+        # plt.fill_betweenx(y, 0, 5, facecolor='lightblue', alpha=0.5)
+    ax.axvspan(xmin=2.5, xmax=4.5, facecolor='red', alpha=0.2)
+    ax.set_xticks(range(3,9))
+    ax.set_xlim(2.5,8.5)
+    ax.tick_params(axis='x', labelsize=20) # Adjust x-axis tick label size
+    ax.tick_params(axis='y', labelsize=20) # Adjust y-axis tick label size
+    ax.set_title(title,fontsize=20)
+    ax.set_xlabel('Chain Length (no. carbons)',fontsize=16)
+    ax.set_ylabel('$\Delta{}E_0$ (kcal/mol)',fontsize=16)
+    ax.set_ylim(-90,30)
+    ax.axhspan(ymin=-120,ymax=0,facecolor='grey',alpha=0.2)
+    fig.axhline(y=0, color='black', linestyle='-')
+        # fig.savefig(f'chemdraw_figure_images/{reaction_name}.png',bbox_inches='tight') 
+    ax.legend()
+    fig.show()
+        # plt.close
+
+
+
+
+
+
+

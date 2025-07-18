@@ -146,8 +146,11 @@ class BatchRunner:
             if self.debug: print(f"running OneIter on job with\nbasename{job.job_name}\nid: {job.job_id}")
             if self.debug: print(f"job directory: {job.directory}")
 
-            
+            print('----------------debug---------------')
+            print(json.dumps(job.to_dict(),indent=6))
             job.OneIter()
+            
+            print('------------------------------------')
            
             if self.debug: print(f"job status: {job.status}")
             self.ledger.loc[self.ledger['job_id'] == job.job_id, 'job_status'] = job.status
@@ -178,8 +181,9 @@ class BatchRunner:
                 print(fail_path)
                 print("////////////////////////////////////////////////////////")
                 print()
-
+            
             if job.status == 'succeeded':
+                self.jobs.pop(index)
                 print() 
                 print("////////////////////////////////////////////////////////")
                 print('JOB SUCCEEDED')
@@ -187,7 +191,6 @@ class BatchRunner:
                 print(job.directory)
                 print("////////////////////////////////////////////////////////")
                 print()
-                self.jobs.pop(index)
 
    
 

@@ -104,7 +104,6 @@ class JobHarness:
         #allows us to check status given only a directory and basename
         if not self.job_id or self.job_id == -1:
             self.get_id()
-            
 
         for attempt in range(5):    #needs
             try:
@@ -166,6 +165,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             if self.debug: print(f"slurm output before static success check: {output}")
             output_filename = f"{os.path.join(self.directory,self.job_name)}{self.output_extension}"
             if not os.path.exists(output_filename):
+                print(f'OLD OUTPUT FILE {output_filename} NOT FOUND') 
                 return 'not_started' #DANGEROUS, EXPECT NEGATIVE CONSEQUENCES
             self.check_success_static()
             return 
