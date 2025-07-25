@@ -149,14 +149,14 @@ class BatchRunner:
             print('----------------debug---------------')
             print(json.dumps(job.to_dict(),indent=6))
             job.OneIter()
-            
+            print('after OneIter:')
+            print(json.dumps(job.to_dict(),indent=6))
             print('------------------------------------')
            
             if self.debug: print(f"job status: {job.status}")
             self.ledger.loc[self.ledger['job_id'] == job.job_id, 'job_status'] = job.status
             if job.status == 'failed':
                 self.flag_broken_dependencies()
-                self.jobs.pop(index)
                 out_path = os.path.join(job.directory,job.job_name) + job.output_extension
                 if not job.job_id:
                     job.get_id()
@@ -172,6 +172,8 @@ class BatchRunner:
                 print(slurm_path)
                 if os.path.exists(slurm_path):
                     shutil.copy(slurm_path,os.path.join(fail_path,f"slurm-{job.job_id}.out"))
+
+                self.jobs.pop(index)
                 print() 
                 print("////////////////////////////////////////////////////////")
                 print('JOB FAILED')

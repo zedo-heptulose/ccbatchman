@@ -278,7 +278,7 @@ def create_handle_fail(ledger_path):
         if is_crest:
             return row
         
-        is_failed = (row['job_status'].lower() == 'failed')
+        is_failed = (row['job_status'].lower() == 'failed') 
         if not is_failed:
             return row
             
@@ -341,6 +341,8 @@ def cartesian_restart(ledger_path):
         is_orca = (row['program'].lower() == 'orca')
         is_gaussian = (row['program'].lower() == 'gaussian')
         is_failed = (row['job_status'] == 'failed')
+        is_imaginary_freq = (row['fail_cause'] == 'imaginary_freq')
+        is_bad_stationary_point = (row['fail_cause'] == 'bad_stationary_point' )
         
         directory = row['job_directory']
         basename = row['theory']
@@ -348,9 +350,6 @@ def cartesian_restart(ledger_path):
         with open(old_config_filename,'r') as old_config_file:
             old_config = json.load(old_config_file)
     
-        # print('-------------------------------')
-        # print(f"is_orca | {(row['program'].lower() == 'orca')}")
-        # print(f"is_gaussian | {(row['program'].lower() == 'gaussian')}")
         
         if is_orca and is_failed:
             print('ORCA imaginary frequency')
@@ -358,20 +357,22 @@ def cartesian_restart(ledger_path):
             'run_type': "COPT FREQ",
             }
             rewrite_job(row,override_configs,ledger_path)
-        # elif is_gaussian and is_failed:
-        #     print('Gaussian imaginary frequency')
-        #     override_configs = {
-        #     'xyz_file' : None,
-        #     # CHECK COORD REPLACEMENT ISSUE
-        #     'other_keywords' : [
-        #             'geom=checkpoint',
-        #             'int=ultrafine nosymm'
-        #         ],
-        #     }
-        #     rewrite_job(row,override_configs,ledger_path)
+            
+        elif is_gaussian and is_failed and is_imaginary_freq:
+            print('Gaussian imaginary frequency')
+            override_configs = {
+                'run_type': "OPT=Tight FREQ",
+            }
+            rewrite_job(row,override_configs,ledger_path)
         
         return row
     return handle_fail
+
+
+
+
+
+
 
 
 def kill_running_job(row):

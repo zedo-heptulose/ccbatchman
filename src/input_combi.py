@@ -134,6 +134,7 @@ def iterate_inputs(list_of_dict_of_dicts,flag_array,**kwargs):
 
 
 def write_input_array(_configs,root_directory,**kwargs):
+    error_codes = {}
     if type(_configs) is dict:
         configs = copy.deepcopy(_configs.values())
     else:
@@ -216,33 +217,34 @@ def write_input_array(_configs,root_directory,**kwargs):
             except:
                 pass
 
-        #check if we have a ledger before the next part
-        ledger_filename = kwargs.get('ledger','__ledger__.csv')
-        ledger_path = os.path.join(root_directory,ledger_filename)
-        ledger = None
-
-        if os.path.exists(ledger_path):
-            ledger = pd.read_csv(ledger_path,sep='|')
-            if kwargs.get('debug',False): print(f'ledger exists: {ledger_path}')
-        #if we have a ledger, update it
-        if (overwrite_directory or overwrite_input) and ledger is not None:
-            identify_mask = (ledger['job_basename'] == config['job_basename']) &\
-                            (ledger['job_directory'] == config['write_directory'])   
-            
-            if identify_mask.sum() > 1:
-                raise ValueError("Multiple jobs found with the same name.")
-            elif identify_mask.sum() == 0:
-                if kwargs.get('debug',False): print('nothing satisfies parameters')
-                if kwargs.get('debug',False): print(f"write/ directory: {config['write_directory']} | {ledger['job_basename']}")
-                if kwargs.get('debug',False): print(f"basename: {config['job_basename']} | {ledger['job_directory']}")
-            else:
-                ledger.loc[identify_mask, 'job_id'] = f"{-1}"
-                ledger.loc[identify_mask, 'job_status'] = 'not_started'
-                ledger.loc[identify_mask, 'coords_from'] = config.get('!coords_from',None)
-                ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
-
-
-            ledger.to_csv(ledger_path,sep='|',index=False)
+        if (overwrite_directory or overwrite_input):
+            #check if we have a ledger before the next part
+            ledger_filename = kwargs.get('ledger','__ledger__.csv')
+            ledger_path = os.path.join(root_directory,ledger_filename)
+            ledger = None
+    
+            if os.path.exists(ledger_path):
+                ledger = pd.read_csv(ledger_path,sep='|')
+                if kwargs.get('debug',False): print(f'ledger exists: {ledger_path}')
+            #if we have a ledger, update it
+            if ledger is not None:
+                identify_mask = (ledger['job_basename'] == config['job_basename']) &\
+                                (ledger['job_directory'] == config['write_directory'])   
+                
+                if identify_mask.sum() > 1:
+                    raise ValueError("Multiple jobs found with the same name.")
+                elif identify_mask.sum() == 0:
+                    if kwargs.get('debug',False): print('nothing satisfies parameters')
+                    if kwargs.get('debug',False): print(f"write/ directory: {config['write_directory']} | {ledger['job_basename']}")
+                    if kwargs.get('debug',False): print(f"basename: {config['job_basename']} | {ledger['job_directory']}")
+                else:
+                    ledger.loc[identify_mask, 'job_id'] = f"{-1}"
+                    ledger.loc[identify_mask, 'job_status'] = 'not_started'
+                    ledger.loc[identify_mask, 'coords_from'] = config.get('!coords_from',None)
+                    ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
+    
+    
+                ledger.to_csv(ledger_path,sep='|',index=False)
 
 
         if kwargs.get('force_write_config',False):

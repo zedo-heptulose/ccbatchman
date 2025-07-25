@@ -584,7 +584,7 @@ class InputBuilder:
 
 
 class ORCAInputBuilder(InputBuilder):
-    def __init__(self):
+    def __init__(selff):
         self.config = helpers.load_config_from_file(f'{CONFIGPATH}{ORCACONFIG}') 
         self.debug = False
 
@@ -758,8 +758,8 @@ class GaussianInputBuilder(InputBuilder):
             inp.keywords.append(self.config['other_keywords'])
     
         if self.config['broken_symmetry']:
-            print("Gaussian does not support Broken Symmetry, Using Guess=Mix")
-            inp.keywords.append('Guess=Mix')
+            raise ValueError("Gaussian does not support Broken Symmetry")
+
         if self.config['mix_guess']:
             inp.keywords.append('Guess=Mix')
 

@@ -257,8 +257,9 @@ class WorkflowGenerator:
                 uks = config.get('uks', None)
                 # uhf = config.get('uhf', None) #implement this when we get a chance...
                 broken_symmetry = config.get('broken_symmetry', False)
+                mix_guess = config.get('mix_guess',False)
                 settings = self._get_charge_multiplicity_settings(
-                    charge, multiplicity, uks, broken_symmetry)
+                    charge, multiplicity, uks, broken_symmetry,mix_guess)
             else:
                 raise ValueError(f"Invalid CM state format: {config}")
             
@@ -962,7 +963,8 @@ class WorkflowGenerator:
                         overrides = {
                             'charge': 0,
                             'spin_multiplicity' : 1,
-                            'broken_symmetry' : True,
+                            'broken_symmetry' : False,
+                            'mix_guess' : True,
                         }
                         sp_overrides.update(overrides)
                         singlet_sp_name = sp_name+'_singlet'
@@ -977,6 +979,7 @@ class WorkflowGenerator:
                             'charge': 0,
                             'spin_multiplicity' : 3,
                             'broken_symmetry' : False,
+                            'mix_guess' : False,
                         }
                         sp_overrides.update(overrides)
                         triplet_sp_name = sp_name+'_triplet'
@@ -1151,7 +1154,7 @@ class WorkflowGenerator:
                 input_list
             )
     
-    def _get_charge_multiplicity_settings(self, charge=0, multiplicity=1, uks=None,broken_symmetry=False):
+    def _get_charge_multiplicity_settings(self, charge=0, multiplicity=1, uks=None,broken_symmetry=False,mix_guess = False):
         """
         Generate charge and multiplicity settings.
         
@@ -1163,6 +1166,8 @@ class WorkflowGenerator:
         Returns:
             dict: Dictionary with charge and multiplicity settings
         """
+        if mix_guess and broken_symmetry:
+            raise ValueError('cannot simultaneously use broken symmetry and mix guess')
         # Determine UKS setting if not specified
         if uks is None:
             uks = multiplicity > 1
@@ -1172,5 +1177,6 @@ class WorkflowGenerator:
             "spin_multiplicity": multiplicity,
             "uks": uks,
             "broken_symmetry" : broken_symmetry,
+            "mix_guess" :mix_guess,
         }
 

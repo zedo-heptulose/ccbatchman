@@ -165,8 +165,15 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
             if self.debug: print(f"slurm output before static success check: {output}")
             output_filename = f"{os.path.join(self.directory,self.job_name)}{self.output_extension}"
             if not os.path.exists(output_filename):
-                print(f'OLD OUTPUT FILE {output_filename} NOT FOUND') 
+                if self.debug: print(f'OLD OUTPUT FILE {output_filename} NOT FOUND') 
                 return 'not_started' #DANGEROUS, EXPECT NEGATIVE CONSEQUENCES
+                # something bad only happens if:
+                # job is pending and has no slurm output yet
+                # we delete the ledger
+                # we restart the batch runner before it starts running
+                # can be fixed by writing job id to the job's json block and using some logic for that
+                # for now, it's fine not to print anything
+            
             self.check_success_static()
             return 
             
