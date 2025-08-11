@@ -54,7 +54,7 @@ class OrcaPostProcessor:
 
     def read_raw_state(self):
         self.data = file_parser.extract_data(self.output_path,self.parser_rules_path)
-        if not self.data['success']:
+        if not self.data['normal_exit']:
             if self.debug: print("warning: reading data from failed job!")
         return self
 
@@ -300,7 +300,7 @@ class GaussianPostProcessor:
 
     def read_raw_state(self):
         self.data = file_parser.extract_data(self.output_path,self.parser_rules_path)
-        if not self.data['success']:
+        if not self.data['normal_exit']:
             if self.debug: print("warning: reading data from failed job!")
         return self
 

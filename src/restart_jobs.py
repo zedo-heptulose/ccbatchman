@@ -100,10 +100,10 @@ def create_check_cause(old=False,debug=False):
         with open(json_path, 'r') as json_file:
             run_data = json.load(json_file)
         
-        if run_data.get('success_opt_freq_2',None) is not None and not run_data.get('success_opt_freq_2',None):
+        if run_data.get('normal_exit_opt_freq_2',None) is not None and not run_data.get('normal_exit_opt_freq_2',None):
             if debug:
-                print('success opt freq...')
-                print(run_data.get('success_opt_freq_2',True))
+                print('normal_exit opt freq...')
+                print(run_data.get('normal_exit_opt_freq_2',True))
                 print(row['molecule'])
                 print(run_data)
         
@@ -117,7 +117,7 @@ def create_check_cause(old=False,debug=False):
             outcome = 'scf_fail'
         elif run_data.get('bad_internals', False):
             outcome = 'bad_internals'
-        elif not run_data.get('success_opt_freq_2',True):
+        elif not run_data.get('normal_exit_opt_freq_2',True):
             outcome = 'bad_stationary_point'
     
         return outcome

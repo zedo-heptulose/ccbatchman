@@ -5,4 +5,4 @@ G_au ; TOTAL\s+FREE\s+ENERGY ; last; float
 #G_minus_E_el_au ; G\(RRHO\)\s+contrib ; last ; float
 Delta_E_homo_lumo_ev ; HOMO-LUMO GAP ; last ; float
 imaginary_frequencies ; \s+imaginary\s+freq\. ; last ; int
-success ; \*\s+finished\s+run\s+on\s+ ; found
+normal_exit ; \*\s+finished\s+run\s+on\s+ ; found

@@ -197,7 +197,7 @@ r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s
     
     def interpret_fp_out(self, file_parser_output):
         #this function exists to be overwritten
-        self.status = ('succeeded' if file_parser_output['success'] else 'failed')
+        self.status = ('succeeded' if file_parser_output['normal_exit'] else 'failed')
             
         
     def submit_job(self,**kwargs):
@@ -343,12 +343,12 @@ class ORCAHarness(JobHarness):
     def interpret_fp_out(self,file_parser_output):
         self.status = 'failed'
         if file_parser_output['is_opt']:
-            if file_parser_output['success'] and file_parser_output['opt_success']:
+            if file_parser_output['normal_exit'] and file_parser_output['opt_normal_exit']:
                 self.status = 'succeeded'
             if file_parser_output['imaginary_frequencies']:
                 self.status = 'failed'
         else:
-            self.status = 'succeeded' if file_parser_output['success'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['normal_exit'] else 'failed'
 
     def final_parse(self):
         opp = postprocessing.OrcaPostProcessor(self.directory,self.job_name)
@@ -365,11 +365,11 @@ class GaussianHarness(JobHarness):
     
     def interpret_fp_out(self, file_parser_output):
         if file_parser_output['is_opt_freq']:
-            self.status = 'succeeded' if file_parser_output['success_opt_freq'] and file_parser_output['success_opt_freq_2'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['normal_exit_opt_freq'] and file_parser_output['normal_exit_opt_freq_2'] else 'failed'
             if file_parser_output['imaginary_frequencies']:
                 self.status = 'failed'
         else:
-            self.status = 'succeeded' if file_parser_output['success'] else 'failed'
+            self.status = 'succeeded' if file_parser_output['normal_exit'] else 'failed'
         
 
     def final_parse(self):

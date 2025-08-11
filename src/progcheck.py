@@ -163,9 +163,9 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
         with open(json_path, 'r') as json_file:
             run_data = json.load(json_file)
     
-        if run_data.get('success_opt_freq_2',None) is not None and not run_data.get('success_opt_freq_2',None):
-            print('success opt freq...')
-            print(run_data.get('success_opt_freq_2',True))
+        if run_data.get('normal_exit_opt_freq_2',None) is not None and not run_data.get('normal_exit_opt_freq_2',None):
+            print('normal_exit opt freq...')
+            print(run_data.get('normal_exit_opt_freq_2',True))
             print(row['system'])
             print(run_data)
         
@@ -179,7 +179,7 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
             new_data.loc[i, 'outcome'] = 'scf_fail'
         elif run_data.get('bad_internals', False):
             new_data.loc[i, 'outcome'] = 'bad_internals'
-        elif not run_data.get('success_opt_freq_2',True):
+        elif not run_data.get('normal_exit_opt_freq_2',True):
             new_data.loc[i, 'outcome'] = 'bad_stationary_point'
         # delete this part later
         else:

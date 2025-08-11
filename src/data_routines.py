@@ -17,7 +17,9 @@ import data_routines
 
 #most of these import statements are unnecessary.
 
-def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=False):
+def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=False,already_seen=None):
+    if already_seen == None:
+        already_seen = set()
     molecule_list = []
     theory_list = []
     status_list = []
@@ -26,10 +28,16 @@ def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=F
     enthalpy_list = []
     gibbs_list = []
     for molecule in {**reactants,**products}.keys():
+        if molecule in exclude:
+            continue
+        if molecule in already_seen:
+            continue
+            
         json_file_path = os.path.join(root,molecule,theory,theory+'.json')
         if not os.path.exists(json_file_path):
-            if debug:
-                print(f"path {json_file_path} not found")
+            # if debug:
+            print(f"json path not found:")
+            print(f"{json_file_path}") 
             energy_list.append(np.nan)
             enthalpy_list.append(np.nan)
             gibbs_list.append(np.nan)
@@ -41,8 +49,6 @@ def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=F
             # print(f'{molecule} does not exist')
             continue
             # raise ValueError('nonsense directory')
-        if molecule in exclude:
-            continue
 
         if os.path.exists(os.path.join(root,molecule,theory,'run_info.json')):# brutal hotfix, pls change
             with open(os.path.join(root,molecule,theory,'run_info.json'),'r') as run_info_file:
@@ -73,6 +79,8 @@ def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=F
         except:
             print(f"{molecule} | {theory}")
             print(data)
+        already_seen.add(molecule)
+        
     data_df = pd.DataFrame({
         'molecule' : molecule_list,
         'theory' : theory_list,
@@ -87,14 +95,15 @@ def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=F
 
 def get_molecule_data(root,reactions,theory,exclude=[],show_structures=False,debug=False):
     df_list = []
+    already_seen = set() # pass by reference into get_reaction_molecule data
     for name, reaction in reactions.items():
         if debug:
             print(f"{name} | {reaction}")
         if show_structures:
             show_reaction_structures(root,reaction,theory)
-        data_df = get_reaction_molecule_data(root,reaction[0],reaction[1],theory,exclude,debug=debug)
+        data_df = get_reaction_molecule_data(root,reaction['reactants'],reaction['products'],theory,exclude,debug=debug,already_seen=already_seen)
         df_list.append(data_df)
-        
+    
     cumulative_df = pd.concat(df_list)
     cumulative_df.drop_duplicates(subset=['molecule','theory'], keep='first', inplace=True, ignore_index=True)
     cumulative_df.index = range(len(cumulative_df))
@@ -103,8 +112,8 @@ def get_molecule_data(root,reactions,theory,exclude=[],show_structures=False,deb
 
 
 def show_reaction_structures(root,reaction,theory):
-    reactants = reaction[0]
-    products = reaction[1]
+    reactants = reaction['reactants']
+    products = reaction['products']
     print('---------------------')
     print('reactants')
     for reactant in reactants.keys():
@@ -168,8 +177,8 @@ def get_reaction_data(molecule_df,reactions,debug=False):
     conversions = {'kcal/mol':627.51}
     for reaction_name, reaction in reactions.items():
         good_data = True
-        reactants = reaction[0]
-        products = reaction[1]
+        reactants = reaction['reactants']
+        products = reaction['products']
         energy_data = {}
         for energy_type in energy_types:
             energy_data[energy_type] = 0
@@ -343,7 +352,6 @@ def plot_enumerated_reactions(reaction_data,reactions=None,title='reactions',yli
         ax.set_ylim(ylim[0],ylim[1])
     ax.axhspan(ymin=-120,ymax=0,facecolor='grey',alpha=0.2)
     ax.axhline(y=0, color='black', linestyle='-')
-        # fig.savefig(f'chemdraw_figure_images/{reaction_name}.png',bbox_inches='tight') 
     ax.legend()
     fig.show()
 # ----------
@@ -437,7 +445,6 @@ def plot_energy_vs_chain_length_multiple(reactions,figure_data,validation_data,t
     ax.set_ylim(-90,30)
     ax.axhspan(ymin=-120,ymax=0,facecolor='grey',alpha=0.2)
     ax.axhline(y=0, color='black', linestyle='-')
-        # fig.savefig(f'chemdraw_figure_images/{reaction_name}.png',bbox_inches='tight') 
     ax.legend()
     fig.show()
         # plt.close

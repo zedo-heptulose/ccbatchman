@@ -584,7 +584,7 @@ class InputBuilder:
 
 
 class ORCAInputBuilder(InputBuilder):
-    def __init__(selff):
+    def __init__(self):
         self.config = helpers.load_config_from_file(f'{CONFIGPATH}{ORCACONFIG}') 
         self.debug = False
 
@@ -750,7 +750,10 @@ class GaussianInputBuilder(InputBuilder):
             self.config['integration_grid'],
         ]
         if self.config['solvent']:
-            inp.keywords.append(f"SCRF(SMD,Solvent={self.config['solvent']})",)
+            if self.config.get('use_PCM',False):
+                inp.keywords.append(f"SCRF(Solvent={self.config['solvent']})",)
+            else:
+                inp.keywords.append(f"SCRF(SMD,Solvent={self.config['solvent']})",)
         #TODO: this is untested, look here if there's a problem. 
         if type(self.config['other_keywords']) is list:
             inp.keywords.extend(self.config['other_keywords']) 
@@ -802,7 +805,11 @@ class CRESTInputBuilder(InputBuilder):
         if self.config['uks']:
             options.append(f"--uhf {self.config['spin_multiplicity'] - 1}")
         if self.config['solvent']:
-            options.append(f"--alpb {self.config['solvent']}")
+            # HOTFIX 7/30/2025 generalize this
+            solvent = self.config['solvent']
+            if solvent.lower() == 'dichloromethane':
+                solvent = 'ch2cl2'
+            options.append(f"--alpb {solvent}")
         if self.config['cluster']:
             options.append('--cluster')
         if self.config['quick'] in ['quick','squick','mquick']:
@@ -811,6 +818,10 @@ class CRESTInputBuilder(InputBuilder):
             options.append('--prop reopt')
         if self.config['noreftopo']:
             options.append('--noreftopo')
+
+        ### new 8/6/25
+        options.append(f"--T {self.config['num_cores']}")
+        ###
         
         ### NEW 7/1/2025
         if self.config.get('constrained_atoms',None):
@@ -940,10 +951,12 @@ class BatchRunnerInputBuilder(InputBuilder):
         max_jobs = self.config['max_jobs']
         verbose = self.config['verbosity']
         input_file = self.config['input_file'] 
+        restart = self.config.get('restart_failed_jobs',False) 
 
-        verbose_string = '-v' if verbose else ''
+        verbose_string = ' -v' if verbose else ''
+        restart_string = ' -r' if restart else ''
         ledger_string = f"-l {self.config['ledger_filename']}"
-        submit_line = f"python3 {command} {input_file} {verbose_string} -j {max_jobs} {ledger_string} > {job_basename}.out"
+        submit_line = f"python3 {command} {input_file}{restart_string}{verbose_string} -j {max_jobs} {ledger_string} > {job_basename}.out"
         return submit_line
 
     def build_input(self):

@@ -42,7 +42,7 @@ def do_everything(root_directory,run_settings,*args,**kwargs):
         if kwargs.get('debug',False): print('editing batchfile')
         batchfile_name = run_settings.get('input_file','batchfile.csv')
         write_batchfile(paths,root_directory,batchfile_name)
-    if run_settings is not None:
+    if run_settings is not None: #???? when would it be None???
         if kwargs.get('debug',False): print('creating script for run')
         write_own_script(run_settings,root_directory)
 

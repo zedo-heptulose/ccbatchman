@@ -163,7 +163,7 @@ class ComputationalDataProcessor:
                     'reaction': [reaction_name],
                     'functional': [functional],
                     'basis_set': [basis_set],
-                    'ΔE_el_rxn(kcal/mol-1)': [np.nan],
+                    'ΔE_el_rxn(kcal/mol-1)': 0.0,
                 })
                 list_rows.append(row)
         
@@ -567,6 +567,17 @@ class ComputationalDataProcessor:
                         molecule_energy_list.append(mol_df_temp)
                 
                     except:
+                        mol_df_temp = pd.DataFrame({
+                            f'molecule': [species],
+                            'G (au)' : 0,
+                            'G (kcal/mol)': 0,
+                            'H (au)' : 0,
+                            'H (kcal/mol)' : 0,
+                            'E (au)' : 0,
+                            'E (kcal/mol)' : 0,
+                            'E (singlepoint) (au)' : 0,
+                            'E (singlepoint) (kcal/mol)' : 0,
+                        })
                         # if debug:
                         print('----------------------')
                         print('parse failed.')
@@ -643,7 +654,8 @@ class ComputationalDataProcessor:
                 save_path = f"{save_path}{filename}.png"
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
 
-        return outer_df, outer_molecule_df, fail_cases, reactions
+        return outer_df, outer_molecule_df, fail_cases, 
+        #reactions
 
     
 

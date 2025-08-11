@@ -140,21 +140,31 @@ class BatchRunner:
                 )
 
     def run_jobs_update_ledger(self,**kwargs):
+        if self.debug:
+            print('--------------------------------------')
+            print('in run_jobs_update_ledger()')
+            print()
+            
         debug = kwargs.get('debug',False)
         for index in range(len(self.jobs) - 1, -1, -1):
             job = self.jobs[index]
-            if self.debug: print(f"running OneIter on job with\nbasename{job.job_name}\nid: {job.job_id}")
-            if self.debug: print(f"job directory: {job.directory}")
-
-            print('----------------debug---------------')
-            print(json.dumps(job.to_dict(),indent=6))
+            
+            if self.debug: 
+                print(f"running OneIter on job with\nbasename{job.job_name}\nid: {job.job_id}")
+                print(f"job directory: {job.directory}")
+                print(json.dumps(job.to_dict(),indent=6))
+            
             job.OneIter()
-            print('after OneIter:')
-            print(json.dumps(job.to_dict(),indent=6))
-            print('------------------------------------')
+            
+            if self.debug:
+                print('after OneIter:')
+                print(json.dumps(job.to_dict(),indent=6))
+                print('------------------------------------')
            
             if self.debug: print(f"job status: {job.status}")
+                
             self.ledger.loc[self.ledger['job_id'] == job.job_id, 'job_status'] = job.status
+            
             if job.status == 'failed':
                 self.flag_broken_dependencies()
                 out_path = os.path.join(job.directory,job.job_name) + job.output_extension
@@ -194,7 +204,9 @@ class BatchRunner:
                 print("////////////////////////////////////////////////////////")
                 print()
 
-   
+        if self.debug:
+            print('exiting run_jobs_update_ledger()')
+            print('--------------------------------------')
 
 
     def transfer_coords(self,ledger_row,job):
@@ -328,7 +340,7 @@ class BatchRunner:
                     print("////////////////////////////////////////////////////////")
                 
                 else:
-                    raise ValueError(f"check_success_static() returned unexpected value: {job.status}")
+                    raise ValueError(f"invalid job status: {job.status}")
 
                 
                 ledger_index = not_started_jobs.index[i]
@@ -537,7 +549,12 @@ class BatchRunner:
             print("STATUS CHECK DONE")
             self.write_ledger()
             return
-        while not self.check_finished():
+        if self.restart_failed:
+            do_one_pass = True
+        else:
+            do_one_pass = False
+        while not (self.check_finished() and not do_one_pass):
+            do_one_pass = False
             # if self.debug: 
             print('updating ledger and running job loops')
             self.run_jobs_update_ledger()

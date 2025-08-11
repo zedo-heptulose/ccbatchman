@@ -71,7 +71,7 @@ class ParseNode:
         self.data = {} #
         self.directory = "" #full path to the directory this uses
         self.basename = basename
-        self.lazy = kwargs.get('lazy',True) 
+        self.lazy = kwargs.get('lazy',False) 
 
     @property
     def json_path(self):
@@ -123,19 +123,27 @@ class ParseLeaf(ParseNode):
         # Should have some kind of flag where we can decide not to do this with strict settings, to avoid bugs.
         # And this should never happen silently, even if self.debug == False.
         else:
-            print('NO run_info.json - inferring program from file extension.')
+            if self.debug:
+                print('NO run_info.json - inferring program from file extension.')
             orca_output_file = self.json_path[:-5] + '.out'
             gaussian_output_file = self.json_path[:-5] + '.log'
-            # get rid of these later, just seeing what these look like
-            print(orca_output_file)
-            print(gaussian_output_file)
+
+            
             if os.path.exists(orca_output_file):
-                print('inferring ORCA - .out extension found')
                 ruleset = os.path.basename(ORCARULES)
+                
+                if self.debug:    
+                    print('inferring ORCA - .out extension found') 
+                    print(orca_output_file)
+            
             elif os.path.exists(gaussian_output_file):
-                print('inferring Gaussian - .log extension found')
                 ruleset = os.path.basename(GAUSSIANRULES)
-            config_dir = os.path.join(os.path.dirname(__file__),'../config/file_parser_config',ruleset)
+                if self.debug:
+                    print('inferring Gaussian - .log extension found')
+                    print(gaussian_output_file)
+
+                
+                config_dir = os.path.join(os.path.dirname(__file__),'../config/file_parser_config',ruleset)
             ruleset = os.path.normpath(config_dir)
             if self.debug : print(f'found ruleset in run_info.json: {ruleset}')
             
@@ -579,6 +587,11 @@ class DiradicalNode(ParseNode):
         
         E_sp_triplet = triplet_sp_data['E_el_au']
         E_sp_singlet = singlet_sp_data['E_el_au']
+
+        print('--------------------------------')
+        print('expectation values of <S**2>')
+        print(f'triplet: {S_2_triplet}')
+        print(f"singlet: {S_2_singlet}")
         
 
         data[f'Delta_E_st_v_{self.multiplicity.lower()}_au'] = E_sp_triplet - E_sp_singlet

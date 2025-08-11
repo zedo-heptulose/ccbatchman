@@ -8,11 +8,11 @@ __after__ ; DFT DISPERSION CORRECTION
   E_gCP_au ; gCP\s+correction ; last ; float
 __before__ ; FINAL SINGLE POINT ENERGY
 G_minus_E_el_au ; G-E\s*\(el\) ; last ; float
-success ; ORCA TERMINATED NORMALLY ; found
+normal_exit ; ORCA TERMINATED NORMALLY ; found
 __after__ ; INPUT FILE
   is_opt ; (?i)(^|\s+)(opt|tightopt|verytightopt|copt)\s+ ; found
 __before__ ; \*\*\*\*END OF INPUT\*\*\*\*
-opt_success ; \*\*\* OPTIMIZATION RUN DONE \*\*\* ; found
+opt_normal_exit ; \*\*\* OPTIMIZATION RUN DONE \*\*\* ; found
 opt_fail ; The optimization did not converge but reached ; found
 scf_fail ; SCF NOT CONVERGED ; found
 __after__ ; VIBRATIONAL\s+FREQUENCIES

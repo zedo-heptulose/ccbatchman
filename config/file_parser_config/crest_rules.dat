@@ -1,1 +1,1 @@
-success ; CREST\s+terminated\s+normally  ; found
+normal_exit ; CREST\s+terminated\s+normally  ; found
