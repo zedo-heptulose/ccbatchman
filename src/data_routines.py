@@ -17,7 +17,11 @@ import data_routines
 
 #most of these import statements are unnecessary.
 
-def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=False,already_seen=None):
+def get_molecule_data(root,molecules,theory,exclude=[],
+                      debug=False,
+                      already_seen=None,
+                      replace_theories=None,
+                     ):
     if already_seen == None:
         already_seen = set()
     molecule_list = []
@@ -27,58 +31,68 @@ def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=F
     energy_list = []
     enthalpy_list = []
     gibbs_list = []
-    for molecule in {**reactants,**products}.keys():
+    
+    original_theory = theory
+    
+    for molecule in molecules:
         if molecule in exclude:
             continue
         if molecule in already_seen:
             continue
-            
-        json_file_path = os.path.join(root,molecule,theory,theory+'.json')
-        if not os.path.exists(json_file_path):
-            # if debug:
-            print(f"json path not found:")
-            print(f"{json_file_path}") 
-            energy_list.append(np.nan)
-            enthalpy_list.append(np.nan)
-            gibbs_list.append(np.nan)
-                
-            molecule_list.append(molecule)
-            theory_list.append(theory)
-            status_list.append('nonexistent')
-            electronic_energy_list.append(np.nan)
-            # print(f'{molecule} does not exist')
-            continue
-            # raise ValueError('nonsense directory')
+        if molecule in replace_theories.keys()    
+            new_theory = replace_theories[molecule]
+            if type(new_theory) is list:
+                if len(new_theory) == 1:
+                    theory = new_theory[0]
+                    basename = theory
+                elif len(new_theory) == 2:
+                    theory = new_theory[0]
+                    basename = new_theory[1]
+                else:
+                    raise ValueError(f'too many items ({len(new_theory)}) in new_theory argument in get_molecule_data')
 
-        if os.path.exists(os.path.join(root,molecule,theory,'run_info.json')):# brutal hotfix, pls change
-            with open(os.path.join(root,molecule,theory,'run_info.json'),'r') as run_info_file:
-                run_info_data = json.load(run_info_file)
-            status = run_info_data['status']
-        else:
-            status = 'succeeded' # brutal.
+            elif type(new_theory) is str:
+                theory = new_theory
+                basename = theory
+            else:
+                raise ValueError(f'invalid type ({type(new_theory)})for new_theory argument in get_molecule data')
             
+        else:
+            theory = original_theory
+            basename = theory
+        
+        # json_file_path = os.path.join(root,molecule,theory,json_filename)
+        # if not os.path.exists(json_file_path):
+        # print(f"json path not found:")
+        # print(f"{json_file_path}") 
         parseleaf = parse_tree.ParseLeaf()
         parseleaf.directory = os.path.join(root,molecule,theory)
         parseleaf.basename = theory
         parseleaf.parse_data()
         data = parseleaf.data
-        try:
-            if data.get('E_au',None):
-                energy_list.append(data['E_au'])
-                enthalpy_list.append(data['H_au'])
-                gibbs_list.append(data['G_au'])
-            else:
-                energy_list.append(np.nan)
-                enthalpy_list.append(np.nan)
-                gibbs_list.append(np.nan)
-                
-            molecule_list.append(molecule)
-            theory_list.append(theory)
-            status_list.append(status)
-            electronic_energy_list.append(data['E_el_au'])
-        except:
-            print(f"{molecule} | {theory}")
-            print(data)
+
+        if os.path.exists(os.path.join(root,molecule,theory,'run_info.json')):# brutal hotfix, pls change
+            with open(os.path.join(root,molecule,theory,'run_info.json'),'r') as run_info_file:
+                run_info_data = json.load(run_info_file)
+            status = run_info_data['status']
+            
+        else:
+            status = 'ambiguous' # less brutal.
+            
+        if data.get('E_au',None):
+            energy_list.append(data['E_au'])
+            enthalpy_list.append(data['H_au'])
+            gibbs_list.append(data['G_au'])
+        else:
+            energy_list.append(np.nan)
+            enthalpy_list.append(np.nan)
+            gibbs_list.append(np.nan)
+            
+        molecule_list.append(molecule)
+        theory_list.append(theory)
+        status_list.append(status)
+        electronic_energy_list.append(data['E_el_au'])
+    
         already_seen.add(molecule)
         
     data_df = pd.DataFrame({
@@ -93,7 +107,11 @@ def get_reaction_molecule_data(root,reactants,products,theory,exclude=[],debug=F
     return data_df
 
 
-def get_molecule_data(root,reactions,theory,exclude=[],show_structures=False,debug=False):
+def get_reaction_molecule_data(root,reactions,theory,exclude=[],
+                      show_structures=False,
+                      debug=False,
+                     replace_theories=None
+                     ):
     df_list = []
     already_seen = set() # pass by reference into get_reaction_molecule data
     for name, reaction in reactions.items():
@@ -101,7 +119,9 @@ def get_molecule_data(root,reactions,theory,exclude=[],show_structures=False,deb
             print(f"{name} | {reaction}")
         if show_structures:
             show_reaction_structures(root,reaction,theory)
-        data_df = get_reaction_molecule_data(root,reaction['reactants'],reaction['products'],theory,exclude,debug=debug,already_seen=already_seen)
+        molecules = {**reaction['reactants'],**reaction['products']}.keys()
+        data_df = get_molecule_data(root,molecules,theory,exclude,debug=debug,already_seen=already_seen,
+                                            replace_theories=replace_theories)
         df_list.append(data_df)
     
     cumulative_df = pd.concat(df_list)
@@ -238,7 +258,9 @@ def merge_constrained_data(normal_data,constrained_data):
 def reaction_data_routine(reactions,root_dir,molecule_dirs,
                          backup_dirs=None,
                          replace_dirs=None,
+                         replace_molecules=None,
                          force_merge=[],
+                         replace_theories=None,
                          debug=False):
     '''
     general case for processing reaction data
@@ -252,7 +274,7 @@ def reaction_data_routine(reactions,root_dir,molecule_dirs,
     normal_root = os.path.join(root_dir,normal_dir)
     if debug:
         print('getting default data:')
-    data = get_molecule_data(normal_root,reactions,normal_theory,debug=debug)
+    data = get_reaction_molecule_data(normal_root,reactions,normal_theory,debug=debug,replace_theories=replace_theories)
 
     if backup_dirs:
         backup_dir = backup_dirs[0]
@@ -260,7 +282,7 @@ def reaction_data_routine(reactions,root_dir,molecule_dirs,
         backup_root = os.path.join(root_dir,backup_dir)
         if debug:
             print('backup data:')
-        backup_data = get_molecule_data(backup_root,reactions,backup_theory,debug=debug)
+        backup_data = get_reaction_molecule_data(backup_root,reactions,backup_theory,debug=debug)
         data = merge_data(data,backup_data,force_merge)
 
     if replace_dirs:
@@ -269,9 +291,15 @@ def reaction_data_routine(reactions,root_dir,molecule_dirs,
         replace_root = os.path.join(root_dir,replace_dir)
         if debug:
             print('replacement data:')
-        replacement_data = get_molecule_data(replace_root,reactions,replace_theory,debug=debug)
+        replacement_data = get_reaction_molecule_data(replace_root,reactions,replace_theory,debug=debug)
         replacement_data = replacement_data.dropna(thresh=4)
         data = replace_data(data,replacement_data)
+
+    # if replace_molecules:
+    #     for molecule, directories in replace_molecules.keys()
+    #         replace_theory = directories[0]
+    #         replace_output = directories[1]
+    #         data = get_reaction_molecule_data(
     
     return get_reaction_data(data,reactions)
 
@@ -455,7 +483,8 @@ def get_data_chains(start_index,end_index,meta_reactions,
                     root_dir,normal_dir,normal_theory,
                     backup_dir=None, backup_theory=None,
                     constrained_dir=None,constrained_theory=None,
-                    force_merge = []
+                    force_merge = [],
+                    
                    ):
     '''
     specific case of processing data for the alcohol cycle data set
@@ -468,16 +497,16 @@ def get_data_chains(start_index,end_index,meta_reactions,
         reaction_names = reactions.keys()
         
         normal_root = os.path.join(root_dir,normal_dir)
-        data = get_molecule_data(normal_root,reactions,normal_theory)
+        data = get_reaction_molecule_data(normal_root,reactions,normal_theory)
 
         if backup_dir and backup_theory:
             backup_root = os.path.join(root_dir,backup_dir)
-            backup_data = get_molecule_data(backup_root,reactions,backup_theory)
+            backup_data = get_reaction_molecule_data(backup_root,reactions,backup_theory)
             data = merge_data(data,backup_data,force_merge)
 
         if constrained_dir and constrained_theory:
             constrained_root = os.path.join(root_dir,constrained_dir)
-            constrained_data = get_molecule_data(constrained_root,reactions,constrained_theory)
+            constrained_data = get_reaction_molecule_data(constrained_root,reactions,constrained_theory)
             constrained_data = constrained_data.dropna(thresh=4)
         
             data = replace_data(data,constrained_data)
