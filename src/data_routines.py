@@ -17,10 +17,15 @@ import data_routines
 
 #most of these import statements are unnecessary.
 
-def get_molecule_data(root,molecules,theory,exclude=[],
+def get_molecule_data(root,
+                      molecules,
+                      theory,
+                      exclude=[],
                       debug=False,
                       already_seen=None,
                       replace_theories=None,
+                      check_fail_cause=True, #turning this off might make it run faster
+                      silent=False,
                      ):
     if already_seen == None:
         already_seen = set()
@@ -31,6 +36,7 @@ def get_molecule_data(root,molecules,theory,exclude=[],
     energy_list = []
     enthalpy_list = []
     gibbs_list = []
+    fail_cause_list = []
     
     original_theory = theory
     
@@ -39,19 +45,22 @@ def get_molecule_data(root,molecules,theory,exclude=[],
             continue
         if molecule in already_seen:
             continue
-        if molecule in replace_theories.keys()    
+        if replace_theories and molecule in replace_theories.keys():
             new_theory = replace_theories[molecule]
-            if type(new_theory) is list:
+            if type(new_theory) is list or type(new_theory) is tuple:
                 if len(new_theory) == 1:
+                    if debug: print('1')
                     theory = new_theory[0]
                     basename = theory
                 elif len(new_theory) == 2:
+                    if debug: print('2')
                     theory = new_theory[0]
                     basename = new_theory[1]
                 else:
                     raise ValueError(f'too many items ({len(new_theory)}) in new_theory argument in get_molecule_data')
 
             elif type(new_theory) is str:
+                print('str')
                 theory = new_theory
                 basename = theory
             else:
@@ -65,20 +74,32 @@ def get_molecule_data(root,molecules,theory,exclude=[],
         # if not os.path.exists(json_file_path):
         # print(f"json path not found:")
         # print(f"{json_file_path}") 
-        parseleaf = parse_tree.ParseLeaf()
-        parseleaf.directory = os.path.join(root,molecule,theory)
-        parseleaf.basename = theory
-        parseleaf.parse_data()
-        data = parseleaf.data
-
+        try:
+            parseleaf = parse_tree.ParseLeaf()
+            parseleaf.directory = os.path.join(root,molecule,theory)
+            parseleaf.basename = basename
+            parseleaf.parse_data()
+            data = parseleaf.data
+        except:
+            if not silent:
+                print(f"parseleaf raised an error for molecule {molecule}, returning no data")
+            data = {}
+        
         if os.path.exists(os.path.join(root,molecule,theory,'run_info.json')):# brutal hotfix, pls change
             with open(os.path.join(root,molecule,theory,'run_info.json'),'r') as run_info_file:
                 run_info_data = json.load(run_info_file)
             status = run_info_data['status']
-            
+
         else:
             status = 'ambiguous' # less brutal.
-            
+
+        if status != 'success' and check_fail_cause:
+            directory = os.path.join(root,molecule,theory)
+            fail_cause = restart_jobs.check_cause(status,directory,theory)
+            fail_cause_list.append(fail_cause)
+        else:
+            fail_cause_list.append(None)
+        
         if data.get('E_au',None):
             energy_list.append(data['E_au'])
             enthalpy_list.append(data['H_au'])
@@ -91,14 +112,17 @@ def get_molecule_data(root,molecules,theory,exclude=[],
         molecule_list.append(molecule)
         theory_list.append(theory)
         status_list.append(status)
-        electronic_energy_list.append(data['E_el_au'])
+        
+        electronic_energy_list.append(data.get('E_el_au',None))
     
+        
         already_seen.add(molecule)
         
     data_df = pd.DataFrame({
         'molecule' : molecule_list,
         'theory' : theory_list,
         'status' : status_list,
+        'fail_cause' : fail_cause_list,
         'E_el_au' : electronic_energy_list,
         'E_au' : energy_list,
         'H_au' : enthalpy_list,
@@ -107,10 +131,12 @@ def get_molecule_data(root,molecules,theory,exclude=[],
     return data_df
 
 
-def get_reaction_molecule_data(root,reactions,theory,exclude=[],
-                      show_structures=False,
-                      debug=False,
-                     replace_theories=None
+def get_reaction_molecule_data(
+    root,reactions,theory,exclude=[],
+    show_structures=False,
+    debug=False,
+    replace_theories=None,
+    silent=False,
                      ):
     df_list = []
     already_seen = set() # pass by reference into get_reaction_molecule data
@@ -121,7 +147,7 @@ def get_reaction_molecule_data(root,reactions,theory,exclude=[],
             show_reaction_structures(root,reaction,theory)
         molecules = {**reaction['reactants'],**reaction['products']}.keys()
         data_df = get_molecule_data(root,molecules,theory,exclude,debug=debug,already_seen=already_seen,
-                                            replace_theories=replace_theories)
+                                            replace_theories=replace_theories,silent=silent)
         df_list.append(data_df)
     
     cumulative_df = pd.concat(df_list)
@@ -191,17 +217,17 @@ def replace_data(normal_data,constrained_data):
 
 
 
-def get_reaction_data(molecule_df,reactions,debug=False):
+def get_reaction_data(molecule_df,reactions,debug=False,show_au=False,conversions={'kcal/mol':627.51},
+                     energy_types = ['G_au','H_au','E_au','E_el_au']):
     df_list = []
-    energy_types = ['E_el_au','E_au','H_au','G_au']
-    conversions = {'kcal/mol':627.51}
     for reaction_name, reaction in reactions.items():
         good_data = True
         reactants = reaction['reactants']
         products = reaction['products']
+        raw_data = {}
         energy_data = {}
         for energy_type in energy_types:
-            energy_data[energy_type] = 0
+            raw_data[energy_type] = 0
             
             for reactant, coefficient in reactants.items():
                 if debug: print(reactant)
@@ -211,7 +237,7 @@ def get_reaction_data(molecule_df,reactions,debug=False):
                 if not molecule_df[molecule_df['molecule']==reactant].iloc[0]['status'] == 'succeeded':
                     good_data = False
                 if debug: print(molecule_df[molecule_df['molecule']==reactant].iloc[0])
-                energy_data[energy_type] -= molecule_df[molecule_df['molecule']==reactant].iloc[0][energy_type] * coefficient
+                raw_data[energy_type] -= molecule_df[molecule_df['molecule']==reactant].iloc[0][energy_type] * coefficient
             
             for product, coefficient in products.items():
                 if debug: print(product)
@@ -219,18 +245,20 @@ def get_reaction_data(molecule_df,reactions,debug=False):
                     print(product)
                     print('oh no!')
                 if debug: print(molecule_df[molecule_df['molecule']==product].iloc[0])
-                energy_data[energy_type] += molecule_df[molecule_df['molecule']==product].iloc[0][energy_type] * coefficient
+                raw_data[energy_type] += molecule_df[molecule_df['molecule']==product].iloc[0][energy_type] * coefficient
                 if not molecule_df[molecule_df['molecule']==product].iloc[0]['status'] == 'succeeded':
                     good_data = False
-                    
+
+        energy_data['reaction_name'] = [reaction_name]
+        energy_data['all_succeeded'] = [good_data]
+        
+        for energy_type in energy_types:
             for unit, proportion in conversions.items():
-                energy_data[f"{energy_type[:-3]}_{unit}"] = energy_data[energy_type] * proportion
-                energy_data[f"{energy_type[:-3]}_{unit}"] = [energy_data[f"{energy_type[:-3]}_{unit}"]] # for making dataframe
-            energy_data[energy_type] = [energy_data[energy_type]] # for making dataframe
+                energy_data[f"Delta_{energy_type[:-3]}_{unit}"] = [raw_data[energy_type] * proportion]
+            if show_au:
+                energy_data[f"Delta_{energy_type}"] = [raw_data[energy_type]]
             
         energy_df = pd.DataFrame(energy_data)
-        energy_df['reaction_name'] = [reaction_name]
-        energy_df['all_succeeded'] = good_data
         df_list.append(energy_df)
     data = pd.concat(df_list)
     data.index = range(len(data))
@@ -261,7 +289,8 @@ def reaction_data_routine(reactions,root_dir,molecule_dirs,
                          replace_molecules=None,
                          force_merge=[],
                          replace_theories=None,
-                         debug=False):
+                         debug=False,
+                         silent=False):
     '''
     general case for processing reaction data
     force_merge is a list of molecules in the backup directory that we
@@ -273,35 +302,49 @@ def reaction_data_routine(reactions,root_dir,molecule_dirs,
     normal_theory = molecule_dirs[1]
     normal_root = os.path.join(root_dir,normal_dir)
     if debug:
-        print('getting default data:')
-    data = get_reaction_molecule_data(normal_root,reactions,normal_theory,debug=debug,replace_theories=replace_theories)
+        print('getting default molecule_data:')
+    molecule_data = get_reaction_molecule_data(
+        normal_root,
+        reactions,
+        normal_theory,
+        debug=debug,
+        replace_theories=replace_theories,
+        silent=silent,
+    )
 
     if backup_dirs:
         backup_dir = backup_dirs[0]
         backup_theory = backup_dirs[1]
         backup_root = os.path.join(root_dir,backup_dir)
         if debug:
-            print('backup data:')
-        backup_data = get_reaction_molecule_data(backup_root,reactions,backup_theory,debug=debug)
-        data = merge_data(data,backup_data,force_merge)
+            print('backup molecule_data:')
+        backup_data = get_reaction_molecule_data(
+            backup_root,
+            reactions,
+            backup_theory,
+            debug=debug,
+            silent=silent
+        )
+        molecule_data = merge_data(molecule_data,backup_data,force_merge)
 
     if replace_dirs:
         replace_dir = replace_dirs[0]
         replace_theory = replace_dirs[1]
         replace_root = os.path.join(root_dir,replace_dir)
         if debug:
-            print('replacement data:')
-        replacement_data = get_reaction_molecule_data(replace_root,reactions,replace_theory,debug=debug)
+            print('replacement molecule_data:')
+        replacement_data = get_reaction_molecule_data(
+            replace_root,
+            reactions,
+            replace_theory,
+            debug=debug,
+            silent=silent
+        )
         replacement_data = replacement_data.dropna(thresh=4)
-        data = replace_data(data,replacement_data)
+        molecule_data = replace_data(molecule_data,replacement_data)
 
-    # if replace_molecules:
-    #     for molecule, directories in replace_molecules.keys()
-    #         replace_theory = directories[0]
-    #         replace_output = directories[1]
-    #         data = get_reaction_molecule_data(
-    
-    return get_reaction_data(data,reactions)
+    reaction_data = get_reaction_data(molecule_data,reactions)
+    return reaction_data, molecule_data
 
 
 
@@ -311,11 +354,19 @@ def reaction_data_routine(reactions,root_dir,molecule_dirs,
 
 
 
-def plot_enumerated_reactions(reaction_data,reactions=None,title='reactions',ylim=None):
+def plot_enumerated_reactions(reaction_data,reactions=None,title='reactions',
+                              ylim=None,
+                              energy_type='Delta_G_kcal/mol', 
+                              xlabel='',
+                              ylabel='',
+                              debug=False,
+                              show=True,
+                              filename=None,
+                             ):
     # filter out common part without indexS
     name_roots = set()
     indices = set()
-    print('iterating through reaction names, finding number')
+    if debug: print('iterating through reaction names, finding number')
     for name in reaction_data['reaction_name']:
         name_no_number= re.sub(r'\d+$','',name)
         name_roots.add(name_no_number)
@@ -343,8 +394,15 @@ def plot_enumerated_reactions(reaction_data,reactions=None,title='reactions',yli
         enumerated_names = [root + str(i) for i in indices] 
         electronic_energies = []
         for j, name in enumerate(enumerated_names):
+            if debug: print(f"{j} | {name}")
             row = find_row(reaction_data,name)
-            energy = row['E_el_kcal/mol']
+            if row is None:
+                print(f"no row found by find_row()!")
+                print(f"name: {name}")
+                print(f"reaction_data:")
+                print(reaction_data)
+                print()
+            energy = row[energy_type]
             electronic_energies.append(energy)
             if row['all_succeeded'] == False:
                 failed_names.append(name)
@@ -359,14 +417,15 @@ def plot_enumerated_reactions(reaction_data,reactions=None,title='reactions',yli
         ax.plot(indices,electronic_energies,label=label)
         if len(failed_indices)  != 0:
             if first:
-                failed_label = 'failed job'                
-                ax.scatter(failed_indices,failed_energies,label=failed_label,color='red',s=200)
+                failed_label = 'error in calculation'                
+                ax.scatter(failed_indices,failed_energies,label=failed_label,color='red',s=75)
                 first=False
             else: 
-                ax.scatter(failed_indices,failed_energies,color='red',s=200)
+                ax.scatter(failed_indices,failed_energies,color='red',s=75)
                
             
     # ax.axvspan(xmin=0, xmax=4.5, facecolor='red', alpha=0.2)
+    if debug: print(f"indices: {indices}")
     xmin = min(indices)
     xmax = max(indices)
     ax.set_xticks(range(xmin,xmax+1))
@@ -374,14 +433,24 @@ def plot_enumerated_reactions(reaction_data,reactions=None,title='reactions',yli
     ax.tick_params(axis='x', labelsize=20) # Adjust x-axis tick label size
     ax.tick_params(axis='y', labelsize=20) # Adjust y-axis tick label size
     ax.set_title(title,fontsize=20)
-    ax.set_xlabel('Chain Length (no. carbons)',fontsize=16)
-    ax.set_ylabel('$\Delta{}E_0$ (kcal/mol)',fontsize=16)
+    ax.set_xlabel(xlabel,fontsize=16)
+    ax.set_ylabel(ylabel,fontsize=16)
     if ylim:
         ax.set_ylim(ylim[0],ylim[1])
     ax.axhspan(ymin=-120,ymax=0,facecolor='grey',alpha=0.2)
     ax.axhline(y=0, color='black', linestyle='-')
-    ax.legend()
-    fig.show()
+        # Move legend below plot
+    ax.legend(
+        loc='upper center',
+        bbox_to_anchor=(0.5, -0.3),
+        ncol=2  # adjust number of columns as needed
+    )
+    
+    fig.tight_layout()
+    if show:
+        fig.show()
+    if filename:
+        fig.savefig(filename, dpi=300, bbox_inches='tight')
 # ----------
 
 def find_row(reaction_data,reaction_name):

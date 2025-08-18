@@ -7,122 +7,136 @@ import file_parser
 import json
 import input_generator
 
+
 def run_command(command, workdir):
     result = subprocess.run(command, shell=True, cwd=workdir,
                              capture_output=True, text=True)
     return result.stdout, result.stderr, result.returncode
 
 
+def check_cause(job_status,directory,theory,id=None,old=False,debug=False):
+    if job_status == 'succeeded':
+        return None
+    
+    if old:
+        directory += '_history_0' ## BAD HOTFIX, should really choose highest history no.
+        if not os.path.exists(directory):
+            return None
+    
+    dirs = os.listdir(directory)
+    
+    # Get latest SLURM output file
+    slurm_outputs = [file for file in dirs if 'slurm' in file]
+    slurm_numbers = [int(re.search(r'\d+', slurm_output).group(0)) for slurm_output in slurm_outputs]
+    
+    outcome = None
+    
+    if len(slurm_numbers) == 0:
+        outcome = 'NO_SLURM_OUTPUT'
+        
+    elif old or not id:      
+        id = max(slurm_numbers)
+        if debug:
+            print('--------')
+            print(id)
+            print('--------')
+        
+    elif not id in slurm_numbers:
+        outcome = 'NO_SLURM_OUTPUT'
 
+    if outcome != 'NO_SLURM_OUTPUT':
+        # Check SLURM job status
+        result = subprocess.run(f'seff {id}', shell=True, capture_output=True, text=True)
+        status_line = result.stdout.split('\n')[3] if len(result.stdout.split('\n')) > 3 else ""
+        
+        if 'COMPLETED' in status_line:
+            outcome = 'FAILED' 
+        elif 'NODE_FAIL' in status_line:
+            outcome = 'NODE_FAIL'
+        elif 'TIMEOUT' in status_line:
+            outcome = 'TIMEOUT'
+        elif 'OUT_OF_MEMORY' in status_line:
+            outcome = 'OUT_OF_MEMORY'
+        elif 'RUNNING' in status_line:
+            outcome = None
+            return outcome
+        else:
+            outcome = 'OTHER'
+            if debug:
+                print(status_line)
+    
+        if outcome != 'FAILED' and outcome != 'NO_SLURM_OUTPUT':
+            return outcome
+    
+    base_path = os.path.join(directory, theory)
+    
+    # # Try to find and parse output file
+    this_file_path = os.path.abspath(__file__)
+    path_to_ccbatchman = os.path.dirname(os.path.dirname(this_file_path))
+    file_parser_rules_dir = os.path.join(path_to_ccbatchman,'config/file_parser_config/')
+    orca_rules_path = os.path.join(file_parser_rules_dir,'orca_rules.dat')
+    gaussian_rules_path = os.path.join(file_parser_rules_dir,'gaussian_rules.dat')
+    
+    json_path = f"{base_path}.json"
+    # if not os.path.exists(json_path):
+    out_path = base_path + '.out'
+    if os.path.exists(out_path):
+        # ORCA output
+        output = file_parser.extract_data(
+            out_path,
+            orca_rules_path
+            )
+    else:
+        # Gaussian output
+        out_path = f"{base_path}.log"
+        if os.path.exists(out_path):
+            output = file_parser.extract_data(
+                out_path, 
+                gaussian_rules_path
+            )
+        else:
+            outcome = 'could not parse'
+            return outcome
+    
+    with open(json_path, 'w') as json_file:
+        json.dump(output, json_file, indent=6)
+        
+    with open(json_path, 'r') as json_file:
+        run_data = json.load(json_file)
+    
+    if run_data.get('normal_exit_opt_freq_2',None) is not None and not run_data.get('normal_exit_opt_freq_2',None):
+        if debug:
+            print('normal_exit opt freq...')
+            print(run_data.get('normal_exit_opt_freq_2',True))
+            print(row['molecule'])
+            print(run_data)
+    
+    
+    # Categorize specific error types
+    if run_data.get('imaginary_frequencies', False):
+        outcome = 'imaginary_freq'
+    elif run_data.get('opt_fail', False):
+        outcome = 'opt_maxcycle'
+    elif run_data.get('scf_fail', False):
+        outcome = 'scf_fail'
+    elif run_data.get('bad_internals', False):
+        outcome = 'bad_internals'
+    elif not run_data.get('normal_exit_opt_freq_2',True):
+        outcome = 'bad_stationary_point'
 
+    return outcome
 
 def create_check_cause(old=False,debug=False):
     
-    def check_cause(row):
+    def check_cause_on_row(row):
         job_status = row['job_status']
-        if job_status == 'succeeded':
-            return None
-            
         directory = row['job_directory']
-        
-        if old:
-            directory += '_history_0' ## BAD HOTFIX, should really choose highest history no.
-            if not os.path.exists(directory):
-                return None
-        
-        dirs = os.listdir(directory)
+        theory=row['theory']
         id = row['job_id']
-        
-        # Get latest SLURM output file
-        slurm_outputs = [file for file in dirs if 'slurm' in file]
-        slurm_numbers = [int(re.search(r'\d+', slurm_output).group(0)) for slurm_output in slurm_outputs]
-        
-        if old:
-            id = max(slurm_numbers)
-            if debug:
-                print('--------')
-                print(id)
-                print('--------')
-        
-        if not id in slurm_numbers:
-            outcome = 'NO_SLURM_OUTPUT'
-        else:
-            # Check SLURM job status
-            result = subprocess.run(f'seff {id}', shell=True, capture_output=True, text=True)
-            status_line = result.stdout.split('\n')[3] if len(result.stdout.split('\n')) > 3 else ""
-            
-            if 'COMPLETED' in status_line:
-                outcome = 'FAILED' 
-            elif 'NODE_FAIL' in status_line:
-                outcome = 'NODE_FAIL'
-            elif 'TIMEOUT' in status_line:
-                outcome = 'TIMEOUT'
-            elif 'OUT_OF_MEMORY' in status_line:
-                outcome = 'OUT_OF_MEMORY'
-            elif 'RUNNING' in status_line:
-                outcome = None
-                return outcome
-            else:
-                outcome = 'OTHER'
-                if debug:
-                    print(status_line)
-    
-        if outcome != 'FAILED':
-            return outcome
-    
-        base_path = os.path.join(directory, row['theory'])
-        
-        # # Try to find and parse output file
-        
-        json_path = f"{base_path}.json"
-        # if not os.path.exists(json_path):
-        out_path = base_path + '.out'
-        if os.path.exists(out_path):
-            # ORCA output
-            output = file_parser.extract_data(
-                out_path,                 '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/orca_rules.dat'
-                )
-        else:
-            # Gaussian output
-            out_path = f"{base_path}.log"
-            if os.path.exists(out_path):
-                output = file_parser.extract_data(
-                    out_path, 
-                    '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/gaussian_rules.dat'
-                )
-            else:
-                outcome = 'could not parse'
-                return outcome
-        
-        with open(json_path, 'w') as json_file:
-            json.dump(output, json_file, indent=6)
-            
-        with open(json_path, 'r') as json_file:
-            run_data = json.load(json_file)
-        
-        if run_data.get('normal_exit_opt_freq_2',None) is not None and not run_data.get('normal_exit_opt_freq_2',None):
-            if debug:
-                print('normal_exit opt freq...')
-                print(run_data.get('normal_exit_opt_freq_2',True))
-                print(row['molecule'])
-                print(run_data)
-        
-        
-        # Categorize specific error types
-        if run_data.get('imaginary_frequencies', False):
-            outcome = 'imaginary_freq'
-        elif run_data.get('opt_fail', False):
-            outcome = 'opt_maxcycle'
-        elif run_data.get('scf_fail', False):
-            outcome = 'scf_fail'
-        elif run_data.get('bad_internals', False):
-            outcome = 'bad_internals'
-        elif not run_data.get('normal_exit_opt_freq_2',True):
-            outcome = 'bad_stationary_point'
-    
+        outcome = check_cause(job_status,directory,theory,id,old,debug)
         return outcome
-    
-    return check_cause
+        
+    return check_cause_on_row
 
 
 

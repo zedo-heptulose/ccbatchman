@@ -144,10 +144,12 @@ class ParseLeaf(ParseNode):
 
                 
                 config_dir = os.path.join(os.path.dirname(__file__),'../config/file_parser_config',ruleset)
-            ruleset = os.path.normpath(config_dir)
-            if self.debug : print(f'found ruleset in run_info.json: {ruleset}')
+                ruleset = os.path.normpath(config_dir)
+                if self.debug : print(f'found ruleset in run_info.json: {ruleset}')
             
-                
+            else:
+                raise ValueError(f'no file at json path ({self.json_path}) and unknown file type')
+        
         # Okay, it might be good to be able to handle there not being a run info path.
         # we can check whether the job basename .log exists or job basename .out exists and infer ORCA or Gaussian by default.
 
