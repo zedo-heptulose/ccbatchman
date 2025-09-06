@@ -5,7 +5,7 @@
   "pre_submit_lines" : [
 	  "conda init bash",
 	  "source ~/.bashrc",
-	  "conda activate automation_scripts",
+	  "conda activate ccbatchman",
 	  "export PYTHONUNBUFFERED=1"
   ],
   "post_submit_lines" : null,
