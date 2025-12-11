@@ -1,5 +1,5 @@
 {
-  "path_to_program": "crest",
+  "path_to_program": "/gpfs/research/alabuginlab/software/crest/crest",
   "pre_submit_lines": [
 	  "conda init bash",
 	  "source ~/.bashrc",

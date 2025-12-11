@@ -496,7 +496,7 @@ def plot_energy_vs_chain_length(reaction_name,figure_data,validation_data):
     ax.tick_params(axis='y', labelsize=20) # Adjust y-axis tick label size
     ax.set_title(reaction_name.replace('_',' '),fontsize=20)
     ax.set_xlabel('Chain Length (no. carbons)',fontsize=16)
-    ax.set_ylabel('$\Delta{}E_0$ (kcal/mol)',fontsize=16)
+    ax.set_ylabel('$\\Delta{}E_0$ (kcal/mol)',fontsize=16)
     ax.set_ylim(-120,120)
     ax.axhspan(ymin=-120,ymax=0,facecolor='grey',alpha=0.5)
     fig.savefig(f'chemdraw_figure_images/{reaction_name}.png',bbox_inches='tight') 
@@ -538,7 +538,7 @@ def plot_energy_vs_chain_length_multiple(reactions,figure_data,validation_data,t
     ax.tick_params(axis='y', labelsize=20) # Adjust y-axis tick label size
     ax.set_title(title,fontsize=20)
     ax.set_xlabel('Chain Length (no. carbons)',fontsize=16)
-    ax.set_ylabel('$\Delta{}E_0$ (kcal/mol)',fontsize=16)
+    ax.set_ylabel('$\\Delta{}E_0$ (kcal/mol)',fontsize=16)
     ax.set_ylim(-90,30)
     ax.axhspan(ymin=-120,ymax=0,facecolor='grey',alpha=0.2)
     ax.axhline(y=0, color='black', linestyle='-')

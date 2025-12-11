@@ -515,7 +515,7 @@ class DiradicalNode(ParseNode):
 
         
 
-        self.debug = False
+        self.debug = True # fix this!!!
         self.directory = directory
         self.recursive = recursive
         if of_basename and singlet_sp_basename and triplet_sp_basename:
@@ -530,7 +530,7 @@ class DiradicalNode(ParseNode):
     #this massively expedites process of making these.
     def set_opt_freq_node(self,basename):
         of_node = ParseLeaf(basename)
-        of_node.debug = self.debug
+        # of_node.debug = self.debug
         if self.directory: #this will cause a problem. we'll fix it when it does
             # print(setting directory of of node)
             of_node.directory = os.path.join(self.directory,self.basename,basename)
@@ -543,7 +543,7 @@ class DiradicalNode(ParseNode):
 
     def set_singlepoint_node(self,basename,multiplicity):
         sp_node = ParseLeaf(basename)
-        sp_node.debug = self.debug
+        # sp_node.debug = self.debug
         if self.directory: #this will cause a problem. we'll fix it when it does
             sp_node.directory = os.path.join(self.directory,self.basename,basename)
             # print('set directory!')
@@ -597,12 +597,22 @@ class DiradicalNode(ParseNode):
         
 
         data[f'Delta_E_st_v_{self.multiplicity.lower()}_au'] = E_sp_triplet - E_sp_singlet
-        
-        Delta_E_st_sc = S_2_triplet * (E_sp_triplet - E_sp_singlet)\
-                                    /(S_2_triplet - S_2_singlet)
 
+        if self.debug:
+            print(f"E_sp_triplet: {E_sp_triplet}")
+            print(f"E_sp_singlet: {E_sp_singlet}")
+            print(f"difference: {E_sp_triplet - E_sp_singlet}")
+            print(f"S_2_triplet: {S_2_triplet}")
+            print(f"S_2_singlet: {S_2_singlet}")
+        Delta_E_st_sc = 2 * (E_sp_triplet - E_sp_singlet) # temporary test using Noodleman's method... see if this fixes weirdness?
+        # Delta_E_st_sc = 2 * (E_sp_triplet - E_sp_singlet)\
+        #                    /(S_2_triplet - S_2_singlet) ## UPDATED 2025-09-13
+                                                        ## UPDATED: 2 INSTEAD OF S_2_triplet
+                                                        # as cited in https://pubs.rsc.org/en/content/articlelanding/2015/cp/c4cp05531d?
         data[f'Delta_E_st_sc_v_{self.multiplicity.lower()}_au'] = Delta_E_st_sc # OK, THIS IS WHAT WE NEEDED
 
+        if self.debug:
+            print(f"data[f'Delta_E_st_sc_v_{self.multiplicity.lower()}_au'] = {Delta_E_st_sc}")
         # ########################################
         # print('in parse_tree.py')
         # print(f'multiplicity: {self.multiplicity}')
@@ -611,8 +621,8 @@ class DiradicalNode(ParseNode):
         
         
         self.data['NOTE'] = "Delta_E_st_v_au is triplet - singlet here"
+        
 
-      
         data['E_el_singlet_au'] = E_sp_singlet
         #sc means spin corrected
         data['E_el_sc_singlet_au'] = E_sp_triplet - Delta_E_st_sc
@@ -644,20 +654,42 @@ class DiradicalNode(ParseNode):
         thermo_keys = (raw_thermal_energies,sc_thermal_energies)
         
         sp_energy_types = ['E_el_au','E_el_sc_au']
+        if self.debug:
+            print('---------------------------------------------------')
+            print('entering the part where we add ZPVE and thermal corrections to SC electronic energy')
         for i, sp_energy_type in enumerate(sp_energy_types):
-            for energy_type in thermo_keys[i]:
+            if self.debug:
+                print('----------------------------------------')
+                print(f"sp_energy_type: {sp_energy_type}")
             
+            for energy_type in thermo_keys[i]:
                 conversion_key = energy_type[0] # eg. G_au
                 thermal_key = energy_type[1] # eg. G_minus_E_el_au
                 final_key_name = energy_type[2]
+
+                
+                if self.debug:
+                    print('-----------------------------')
+                    print(f"conversion_key: {conversion_key}")
+                    print(f"thermal_key: {thermal_key}")
+                    print(f"final_key_name = {final_key_name}")
                 
                 data[thermal_key] = of_data.get(thermal_key,None) # get this if we got it
                 
                 if not data[thermal_key]: # make it if we don't
                     data[thermal_key] = of_data[conversion_key] - of_data['E_el_au']
-    
+
+                if self.debug:
+                    print(f"value for data['thermal_key']: {thermal_key}")
+                    
                 ###########################################
+                
                 electronic_energy = data[sp_energy_type] # this was a .get(),
+
+                if self.debug:
+                    print(f"sp_energy_type: {sp_energy_type}")
+                    print(f"electronic_energy: {electronic_energy}")
+                
                 # but we've already long raised an exception by now if
                 # we don't have this
                 ###########################################
@@ -669,7 +701,11 @@ class DiradicalNode(ParseNode):
                     ###########################################
                     data[final_key_name] = electronic_energy + data[thermal_key] 
                     ##########################################
-    
+
+                    if self.debug:
+                        print(f"final_key_name: {final_key_name}")
+                        print(f"value for data['final_key_name']: {data[final_key_name]}")
+                        
                 elif not data[thermal_key]:
                 
                     child_dir = self.children[self.opt_freq_key].directory
