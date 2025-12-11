@@ -242,7 +242,38 @@ class BatchRunner:
                 input_path,xyz_path,input_program
         )
 
-    
+
+    def transfer_orbitals(self, ledger_row, job):
+        """Transfer orbital file (.gbw) from a previous calculation."""
+        orbitals_directory = ledger_row.get('orbitals_from', None)
+        if not orbitals_directory or pd.isna(orbitals_directory):
+            return
+        if orbitals_directory == './':
+            return
+
+        gbw_filename = ledger_row.get('gbw_filename', None)
+        if not gbw_filename or pd.isna(gbw_filename):
+            return
+
+        input_directory = job.directory
+        input_filename = job.job_name + job.input_extension
+        input_path = os.path.join(input_directory, input_filename)
+
+        gbw_path = os.path.join(input_directory, orbitals_directory, gbw_filename)
+        gbw_path = os.path.normpath(gbw_path)
+
+        input_program = job.program
+
+        if self.debug:
+            print(f"calling setup_orbital_read({input_path}, {gbw_path}, {input_program})")
+
+        if not os.path.exists(gbw_path):
+            print(f"WARNING: orbital file not found: {gbw_path}")
+            return
+
+        editor.setup_orbital_read(input_path, gbw_path, input_program)
+
+
     def create_job_harness(self,program,**kwargs):
         if program.lower() == 'gaussian':
             if self.debug: print('Using Gaussian parsing rules')
@@ -328,8 +359,9 @@ class BatchRunner:
                     print(f"job name: {job.job_name}")
                     print(f"job directory: {job.directory}")
                     print("////////////////////////////////////////////////////////")
-                    self.final_parse_dependency(not_started_jobs.iloc[i]) #new functionality   
+                    self.final_parse_dependency(not_started_jobs.iloc[i]) #new functionality
                     self.transfer_coords(not_started_jobs.iloc[i],job)
+                    self.transfer_orbitals(not_started_jobs.iloc[i], job)
                     job.submit_job()
 
                 elif job.status in ['running','pending']:
@@ -405,8 +437,8 @@ class BatchRunner:
        
        
         #TODO: more general piping here
-        self.ledger[['coords_from','xyz_filename']] = batch['pipe'].apply(self.parse_pipe).apply(pd.Series)
-        
+        self.ledger[['coords_from','xyz_filename','orbitals_from','gbw_filename']] = batch['pipe'].apply(self.parse_pipe).apply(pd.Series)
+
         return self
 
     
@@ -464,23 +496,56 @@ class BatchRunner:
         return self
 
 
-    def parse_pipe(self,pipe_command):
-        if self.debug: print(pipe_command)
+    def parse_pipe(self, pipe_command):
+        """
+        Parse pipe command string(s) for coords and/or orbitals transfer.
+        Returns tuple of (coords_from, xyz_filename, orbitals_from, gbw_filename).
+        """
+        if self.debug:
+            print(pipe_command)
+
+        # Default values
+        coords_from, xyz_filename = np.nan, np.nan
+        orbitals_from, gbw_filename = np.nan, np.nan
+
         if not type(pipe_command) is str:
-            return np.nan, np.nan
-        match = re.match('(?:\s*)(\S+)(?:\s*\{\s*)(\S+)(?:\s*,\s*)(\S*)(?:\s*\})',pipe_command)
-        args = list(match.groups())
-        if self.debug: print(args)
-        command = args[0]
-        dirname = args[1]
-        basename = os.path.basename(dirname)
-        xyz_filename = args[2]
-        if xyz_filename == '': xyz_filename = basename+'.xyz'
-        
-        if command.lower() == 'coords':
-            return (dirname,xyz_filename)
-        else:
-            raise NotImplementedError(f"No pipe keyword for {command}")
+            return coords_from, xyz_filename, orbitals_from, gbw_filename
+
+        # Split on semicolon to handle multiple pipe commands
+        commands = pipe_command.split(';')
+
+        for cmd in commands:
+            cmd = cmd.strip()
+            if not cmd:
+                continue
+
+            match = re.match(r'(?:\s*)(\S+)(?:\s*\{\s*)(\S+)(?:\s*,\s*)(\S*)(?:\s*\})', cmd)
+            if not match:
+                continue
+
+            args = list(match.groups())
+            if self.debug:
+                print(args)
+
+            command = args[0]
+            dirname = args[1]
+            basename = os.path.basename(dirname)
+            filename = args[2]
+
+            if command.lower() == 'coords':
+                if filename == '':
+                    filename = basename + '.xyz'
+                coords_from, xyz_filename = dirname, filename
+
+            elif command.lower() == 'orbitals':
+                if filename == '':
+                    filename = basename + '.gbw'
+                orbitals_from, gbw_filename = dirname, filename
+
+            else:
+                print(f"WARNING: Unknown pipe command '{command}'")
+
+        return coords_from, xyz_filename, orbitals_from, gbw_filename
 
     def try_parse_all_jobs(self,**kwargs):
         print(f"trying to parse all jobs in ledger!!")

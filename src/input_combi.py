@@ -242,6 +242,8 @@ def write_input_array(_configs,root_directory,**kwargs):
                     ledger.loc[identify_mask, 'job_status'] = 'not_started'
                     ledger.loc[identify_mask, 'coords_from'] = config.get('!coords_from',None)
                     ledger.loc[identify_mask,'xyz_filename'] = config.get('!xyz_file',None)
+                    ledger.loc[identify_mask, 'orbitals_from'] = config.get('!orbitals_from', None)
+                    ledger.loc[identify_mask, 'gbw_filename'] = config.get('!gbw_file', None)
     
     
                 ledger.to_csv(ledger_path,sep='|',index=False)
@@ -292,7 +294,14 @@ def write_batchfile(_configs,root_dir,filename,**kwargs):
             pipe_string = ''
             if coords_from and xyz_file:
                 pipe_string = f"coords{{{coords_from},{xyz_file}}}"
-        
+
+            orbitals_from = config.get('!orbitals_from', None)
+            gbw_file = config.get('!gbw_file', None)
+            if orbitals_from and gbw_file:
+                if pipe_string:
+                    pipe_string += ";"
+                pipe_string += f"orbitals{{{orbitals_from},{gbw_file}}}"
+
             line = f"{job_directory}|{job_basename}|{program}|{pipe_string}\n"
 
             #check that we haven't already written this

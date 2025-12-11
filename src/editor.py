@@ -35,7 +35,50 @@ def replace_xyz_file(input_path,xyz_path,program):
 
     #the actual logic of this....
     input_obj.directory = input_dirpath
-    input_obj.basename = input_basename 
+    input_obj.basename = input_basename
     input_obj.load_file(input_path)
     input_obj.xyzfile = os.path.basename(xyz_path)
+    input_obj.write_file()
+
+
+def setup_orbital_read(input_path, gbw_path, program):
+    '''
+    Copy .gbw file to job directory and modify ORCA input to read orbitals.
+
+    Parameters:
+        input_path: full path to the ORCA input file
+        gbw_path: full path to the source .gbw file
+        program: should be 'orca' (only ORCA supported for now)
+
+    Adds MORead keyword and %moinp block to the input file.
+    '''
+    if program.lower() != 'orca':
+        raise ValueError("Orbital read currently only supported for ORCA")
+
+    input_obj = input_generator.ORCAInput()
+
+    input_dirpath = os.path.dirname(input_path)
+    input_filename = os.path.basename(input_path)
+    input_basename = os.path.splitext(input_filename)[0]
+
+    # Copy .gbw file to job directory
+    gbw_filename = os.path.basename(gbw_path)
+    new_gbw_path = os.path.join(input_dirpath, gbw_filename)
+    shutil.copy(gbw_path, new_gbw_path)
+
+    # Load and modify input
+    input_obj.directory = input_dirpath
+    input_obj.basename = input_basename
+    input_obj.load_file(input_path)
+
+    # Add MORead keyword if not present
+    if 'MORead' not in input_obj.keywords and 'MOREAD' not in input_obj.keywords:
+        input_obj.keywords.append('MORead')
+
+    # Add %moinp string pointing to the gbw file
+    moinp_string = f'%moinp "{gbw_filename}"'
+    # Remove any existing %moinp lines
+    input_obj.strings = [s for s in input_obj.strings if not s.strip().lower().startswith('%moinp')]
+    input_obj.strings.append(moinp_string)
+
     input_obj.write_file()

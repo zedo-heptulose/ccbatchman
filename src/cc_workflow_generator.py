@@ -41,6 +41,34 @@ DEFAULT_ORCA_SP_CONFIG = {
     "scf_tolerance": "VeryTightSCF",
 }
 
+DEFAULT_ORCA_ROKS_CONFIG = {
+    "program": "ORCA",
+    "integration_grid": "DefGrid3",
+    "scf_tolerance": "TightSCF",
+    "other_keywords": ["ROKS"],
+}
+
+DEFAULT_ORCA_SF_TDDFT_SP_CONFIG = {
+    "program": "ORCA",
+    "integration_grid": "DefGrid3",
+    "scf_tolerance": "TightSCF",
+    "other_keywords": ["UKS"],
+    "blocks": {
+        "scf": ["MaxIter 0"],  # Don't iterate SCF, use ROKS orbitals
+        "tddft": ["SF true", "NRoots 6", "TDA true"],
+    },
+}
+
+DEFAULT_ORCA_SF_TDDFT_OPT_CONFIG = {
+    "program": "ORCA",
+    "integration_grid": "DefGrid3",
+    "scf_tolerance": "TightSCF",
+    "run_type": "OPT",
+    "blocks": {
+        "tddft": ["SF true", "NRoots 6", "TDA true", "IRoot 1"],
+    },
+}
+
 DEFAULT_GAUSSIAN_OPTFREQ_CONFIG = {
     "program": "Gaussian",
     "other_keywords": ["Int=Ultrafine"],
@@ -429,10 +457,194 @@ class WorkflowGenerator:
         # Override with any user settings
         if config_overrides:
             orca_config.update(config_overrides)
-        
+
         self.workflow[name] = orca_config
         return self
-    
+
+    def add_orca_roks_step(self, name: str, functional: str, basis: str,
+                          dispersion: str = None, aux_basis: str = None,
+                          density_fitting: str = None,
+                          config_overrides: Dict = None,
+                          coords_source: str = None, xyz_filename: str = None,
+                          run_type: str = None) -> 'WorkflowGenerator':
+        """
+        Add an ORCA ROKS (Restricted Open-Shell Kohn-Sham) calculation step.
+        Typically used as triplet reference for SF-TDDFT.
+
+        Parameters:
+            name (str): Name for this step
+            functional (str): DFT functional name (e.g., 'BHandHLYP')
+            basis (str): Basis set name
+            dispersion (str): Dispersion correction (e.g., 'D3BJ')
+            aux_basis (str): Auxiliary basis set (e.g., 'def2/JK')
+            density_fitting (str): Density fitting method (e.g., 'RIJK')
+            config_overrides (dict): Settings to override defaults
+            coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file
+            run_type (str): Run type (e.g., 'OPT' or 'OPT FREQ')
+
+        Returns:
+            self: For method chaining
+        """
+        orca_config = copy.deepcopy(DEFAULT_ORCA_ROKS_CONFIG)
+
+        orca_config["functional"] = functional
+        orca_config["basis"] = basis
+
+        if dispersion:
+            orca_config["dispersion_correction"] = dispersion
+        if aux_basis:
+            orca_config["aux_basis"] = aux_basis
+        if density_fitting:
+            orca_config["density_fitting"] = density_fitting
+        if run_type:
+            orca_config["run_type"] = run_type
+
+        if coords_source:
+            orca_config["!coords_from"] = f"../{coords_source}"
+            if xyz_filename:
+                orca_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                orca_config["!xyz_file"] = "crest_best.xyz"
+            else:
+                orca_config["!xyz_file"] = f"{coords_source}.xyz"
+
+        if config_overrides:
+            orca_config.update(config_overrides)
+
+        self.workflow[name] = orca_config
+        return self
+
+    def add_orca_sf_tddft_sp_step(self, name: str, functional: str, basis: str,
+                                  dispersion: str = None, aux_basis: str = None,
+                                  density_fitting: str = None,
+                                  nroots: int = 6, tda: bool = True,
+                                  orbitals_source: str = None, gbw_filename: str = None,
+                                  config_overrides: Dict = None,
+                                  coords_source: str = None, xyz_filename: str = None) -> 'WorkflowGenerator':
+        """
+        Add an ORCA SF-TDDFT single point calculation step.
+        Reads orbitals from a previous ROKS calculation.
+
+        Parameters:
+            name (str): Name for this step
+            functional (str): DFT functional name
+            basis (str): Basis set name
+            dispersion (str): Dispersion correction
+            aux_basis (str): Auxiliary basis set
+            density_fitting (str): Density fitting method
+            nroots (int): Number of roots to compute (default 6)
+            tda (bool): Use Tamm-Dancoff approximation (default True)
+            orbitals_source (str): Source directory for orbital file (relative path)
+            gbw_filename (str): Name of the .gbw file to read
+            config_overrides (dict): Settings to override defaults
+            coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file
+
+        Returns:
+            self: For method chaining
+        """
+        orca_config = copy.deepcopy(DEFAULT_ORCA_SF_TDDFT_SP_CONFIG)
+
+        orca_config["functional"] = functional
+        orca_config["basis"] = basis
+
+        if dispersion:
+            orca_config["dispersion_correction"] = dispersion
+        if aux_basis:
+            orca_config["aux_basis"] = aux_basis
+        if density_fitting:
+            orca_config["density_fitting"] = density_fitting
+
+        # Update tddft block with custom nroots/tda
+        tddft_block = ["SF true", f"NRoots {nroots}"]
+        tddft_block.append("TDA true" if tda else "TDA false")
+        orca_config["blocks"]["tddft"] = tddft_block
+
+        # Set orbital source for MORead
+        if orbitals_source:
+            orca_config["!orbitals_from"] = f"../{orbitals_source}"
+            if gbw_filename:
+                orca_config["!gbw_file"] = gbw_filename
+            else:
+                orca_config["!gbw_file"] = f"{orbitals_source}.gbw"
+
+        # Set coordinate source
+        if coords_source:
+            orca_config["!coords_from"] = f"../{coords_source}"
+            if xyz_filename:
+                orca_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                orca_config["!xyz_file"] = "crest_best.xyz"
+            else:
+                orca_config["!xyz_file"] = f"{coords_source}.xyz"
+
+        if config_overrides:
+            orca_config.update(config_overrides)
+
+        self.workflow[name] = orca_config
+        return self
+
+    def add_orca_sf_tddft_opt_step(self, name: str, functional: str, basis: str,
+                                   dispersion: str = None, aux_basis: str = None,
+                                   density_fitting: str = None,
+                                   nroots: int = 6, iroot: int = 1, tda: bool = True,
+                                   config_overrides: Dict = None,
+                                   coords_source: str = None, xyz_filename: str = None) -> 'WorkflowGenerator':
+        """
+        Add an ORCA SF-TDDFT geometry optimization step.
+        Optimizes geometry on a spin-flip excited state surface.
+
+        Parameters:
+            name (str): Name for this step
+            functional (str): DFT functional name
+            basis (str): Basis set name
+            dispersion (str): Dispersion correction
+            aux_basis (str): Auxiliary basis set
+            density_fitting (str): Density fitting method
+            nroots (int): Number of roots to compute (default 6)
+            iroot (int): Root to optimize (default 1 = first SF state)
+            tda (bool): Use Tamm-Dancoff approximation (default True)
+            config_overrides (dict): Settings to override defaults
+            coords_source (str): Source for coordinates
+            xyz_filename (str): Filename of .xyz file
+
+        Returns:
+            self: For method chaining
+        """
+        orca_config = copy.deepcopy(DEFAULT_ORCA_SF_TDDFT_OPT_CONFIG)
+
+        orca_config["functional"] = functional
+        orca_config["basis"] = basis
+
+        if dispersion:
+            orca_config["dispersion_correction"] = dispersion
+        if aux_basis:
+            orca_config["aux_basis"] = aux_basis
+        if density_fitting:
+            orca_config["density_fitting"] = density_fitting
+
+        # Update tddft block
+        tddft_block = ["SF true", f"NRoots {nroots}", f"IRoot {iroot}"]
+        tddft_block.append("TDA true" if tda else "TDA false")
+        orca_config["blocks"]["tddft"] = tddft_block
+
+        # Set coordinate source
+        if coords_source:
+            orca_config["!coords_from"] = f"../{coords_source}"
+            if xyz_filename:
+                orca_config["!xyz_file"] = f"{xyz_filename}.xyz"
+            elif coords_source == 'crest':
+                orca_config["!xyz_file"] = "crest_best.xyz"
+            else:
+                orca_config["!xyz_file"] = f"{coords_source}.xyz"
+
+        if config_overrides:
+            orca_config.update(config_overrides)
+
+        self.workflow[name] = orca_config
+        return self
+
     def add_gaussian_optfreq_step(self, name: str, functional: str, basis: str,
                                 config_overrides: Dict = None,
                                 coords_source: str = "crest",xyz_filename=None) -> 'WorkflowGenerator':
