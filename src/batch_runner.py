@@ -5,6 +5,7 @@ import os
 import time
 import shutil
 import re
+import subprocess
 #jobs should be a list or dict of job_harness objects
 import editor
 import numpy as np
@@ -14,6 +15,37 @@ import argparse
 
 ## new 2025-06-14
 import restart_jobs
+
+
+def get_all_slurm_statuses():
+    """
+    Get all user's SLURM jobs in one call.
+    Returns: {job_id (int): status (str)} where status is 'running' or 'pending'
+    """
+    try:
+        result = subprocess.run(
+            'squeue -u $USER -o "%i|%T" --noheader',
+            shell=True, capture_output=True, text=True, timeout=30
+        )
+        statuses = {}
+        for line in result.stdout.strip().split('\n'):
+            if not line.strip():
+                continue
+            parts = line.split('|')
+            if len(parts) >= 2:
+                try:
+                    job_id = int(parts[0].strip())
+                    state = parts[1].strip().upper()
+                    if state in ('RUNNING', 'R'):
+                        statuses[job_id] = 'running'
+                    elif state in ('PENDING', 'PD'):
+                        statuses[job_id] = 'pending'
+                except ValueError:
+                    continue
+        return statuses
+    except Exception as e:
+        print(f"Warning: batch squeue failed: {e}")
+        return {}
 
 
 #TODO: add arguments for each of these
@@ -475,24 +507,25 @@ class BatchRunner:
  
     def initialize_run(self):
         '''
-        this reads the batchfile into a ledger in memory.
-        If restart is enabled, we overwrite any conflicts using the old ledger.
-        That is primarily to allow us to add jobs as we please, without messing everything up.
+        This reads the batchfile into a ledger in memory.
+        Then uses JIT status detection to determine actual job states from filesystem.
+        This avoids stale status values from old ledger files.
         '''
         self.read_batchfile()
         if self.debug: print("LEDGER AFTER READING BATCHFILE")
         if self.debug: self.ledger.to_csv('lar.csv')
         
-        if self.restart and os.path.exists(self.ledger_filename):
-            try:
-                if self.debug: print("READING OLD LEDGER AND MERGING")
-                self.read_old_ledger()
-                if self.debug: print("LEDGER AFTER MERGE:")
-                if self.debug: self.ledger.to_csv('lam.csv')
-                if self.debug: print("RESTARTING OLD JOB HARNESSES")
-                self.restart_job_harnesses()
-            except:
-                print("NO LEDGER FOUND TO RESTART FROM")
+        # JIT status detection: always rebuild status from filesystem
+        # This replaces the old ledger merge logic which could preserve stale status values
+        print("Detecting job statuses from filesystem...")
+        self.check_status_all()
+        if self.debug: print("LEDGER AFTER JIT STATUS DETECTION")
+        if self.debug: self.ledger.to_csv('lam.csv')
+        
+        # Restart job harnesses for any running/pending jobs
+        if self.debug: print("RESTARTING JOB HARNESSES FOR ACTIVE JOBS")
+        self.restart_job_harnesses()
+        
         return self
 
 
@@ -569,6 +602,11 @@ class BatchRunner:
     def check_status_all(self,**kwargs):
         self.ledger.index = range(0,len(self.ledger))
         print(f"Length of ledger: {len(self.ledger)}")
+        
+        # Single squeue call for all jobs
+        slurm_cache = get_all_slurm_statuses()
+        print(f"Got {len(slurm_cache)} running/pending jobs from squeue")
+        
         for i,row in self.ledger.iterrows():
             directory = row['job_directory']
             basename = row['job_basename']
@@ -580,18 +618,10 @@ class BatchRunner:
                 'directory': directory,
                 'job_name' : basename,
                 })
-            # print('---------------------------------------')
-            # print(f"DIRECTORY: {directory}")
-            # print(f"ID: {row['job_id']}")
-            # print(f"JOB STATUS IN LEDGER: {row['job_status']}")
-            # print(f"JOB STATUS IN job OBJECT: {job.status}")
-            job.update_status()
-            # print(f"JOB STATUS IN job OBJECT AFTER UPDATE: {job.status}")
+            # Use slurm_cache to avoid N individual squeue calls
+            job.update_status(slurm_cache=slurm_cache)
             self.ledger.loc[i, 'job_id'] = job.job_id
             self.ledger.loc[i, 'job_status'] = job.status
-            # print('---------------------------------------')
-            # print(f"JOB STATUS IN LEDGER: {self.ledger.loc[i,'job_status']}")
-            # print('---------------------------------------')
             if job.status == 'failed':
                 self.flag_broken_dependencies()
             del job

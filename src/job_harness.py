@@ -103,85 +103,93 @@ class JobHarness:
         accepts a job_name
         returns the job_state and geometry_state
         '''
-        debug = kwargs.get('debug',False)
-        in_progress = True # starts true.
-        slurm_status = "N/A"
-        slurm_read = False
+        debug = kwargs.get('debug', False)
+        slurm_cache = kwargs.get('slurm_cache', None)
 
-        #this way we avoid complication; just do this when updating status.
-        #allows us to check status given only a directory and basename
+        # Get job ID if we don't have one
         if not self.job_id or self.job_id == -1:
             self.get_id()
 
-        for attempt in range(5):    #needs
+        # If slurm_cache provided, use it instead of individual squeue calls
+        if slurm_cache is not None:
+            if self.job_id and self.job_id in slurm_cache:
+                cached_status = slurm_cache[self.job_id]
+                if cached_status == 'running':
+                    self.status = 'running'
+                    if debug: print(f"From cache: running")
+                    return
+                elif cached_status == 'pending':
+                    self.status = 'pending'
+                    if debug: print(f"From cache: pending")
+                    return
+            # Job not in cache = not running/pending, check output file
+            output_filename = f"{os.path.join(self.directory, self.job_name)}{self.output_extension}"
+            if not os.path.exists(output_filename):
+                if debug: print(f"Output file not found, status: not_started")
+                self.status = 'not_started'
+                return
+            self.check_success_static()
+            return
+
+        # Original squeue logic (backward compatible when no cache provided)
+        in_progress = True
+        slurm_status = "N/A"
+        slurm_read = False
+
+        for attempt in range(5):
             try:
                 processdata = subprocess.run(
-                                f'squeue --job {self.job_id}',
-                                shell=True,
-                                cwd=self.directory,
-                                stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT
-                                )
-                output = processdata.stdout.decode('utf-8')      
-                # print('---- in job_harness.update_status() ----')
-                # print(f'Squeue output: {output}')
+                    f'squeue --job {self.job_id}',
+                    shell=True,
+                    cwd=self.directory,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT
+                )
+                output = processdata.stdout.decode('utf-8')
                 if debug: print(f'Squeue output: {output}')
-                if re.search('error:',output):
+                if re.search('error:', output):
                     if debug: print('gets to 1st if')
                     in_progress = False
                 elif re.match(
-r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s+$',
+                    r'^\s+JOBID\s+PARTITION\s+NAME\s+USER\s+ST\s+TIME\s+NODES\s+NODELIST\(REASON\)\s+$',
                     output):
                     if debug: print('gets to 2nd if')
                     in_progress = False
                 else:
                     if debug: print('gets to 3rd if')
-                    captureline = output.splitlines()[1] 
+                    captureline = output.splitlines()[1]
                     slurm_status = re.search(
-                                        r'(?:\S+\s+){4}(\S+)',
-                                        captureline).group(1)  
+                        r'(?:\S+\s+){4}(\S+)',
+                        captureline).group(1)
                 slurm_read = True
-                break #if we get to the end, don't bother trying again
+                break
             except:
                 if debug: print(f"Bad capture of squeue response: Attempt {attempt + 1}")
-        
+
         if not slurm_read:
             raise RuntimeError("Could not capture job status through squeue")
 
-        
-        # print(f" in progress? {in_progress}")
         if in_progress:
-            if self.debug: print(f'slurm status:{slurm_status}')   
-            # print(f'slurm status:{slurm_status}')
-            # print('---- ----')
+            if self.debug: print(f'slurm status:{slurm_status}')
             if slurm_status == 'PD':
                 self.status = 'pending'
                 if self.debug: print("returning pending")
                 return
-    
             elif slurm_status == 'R':
                 self.status = 'running'
                 if self.debug: print("returning with running")
                 return
-
             else:
                 in_progress = False
-            
-        if not in_progress: #this isn't an if-else because in_progress can be changed in the last conditional
-            #TODO: FIX THIS
+
+        if not in_progress:
             if self.debug: print(f'updating status with ruleset found at: {self.ruleset}')
             if self.debug: print(f"slurm output before static success check: {output}")
-            output_filename = f"{os.path.join(self.directory,self.job_name)}{self.output_extension}"
+            output_filename = f"{os.path.join(self.directory, self.job_name)}{self.output_extension}"
             if not os.path.exists(output_filename):
-                if self.debug: print(f'OLD OUTPUT FILE {output_filename} NOT FOUND') 
-                return 'not_started' #DANGEROUS, EXPECT NEGATIVE CONSEQUENCES
-                # something bad only happens if:
-                # job is pending and has no slurm output yet
-                # we delete the ledger
-                # we restart the batch runner before it starts running
-                # can be fixed by writing job id to the job's json block and using some logic for that
-                # for now, it's fine not to print anything
-            
+                if self.debug: print(f'OLD OUTPUT FILE {output_filename} NOT FOUND')
+                self.status = 'not_started'
+                return
             self.check_success_static()
             return 
             
