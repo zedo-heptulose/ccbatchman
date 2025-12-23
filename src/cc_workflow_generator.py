@@ -4,7 +4,7 @@ CCBatchMan Workflow Generator
 This module provides a class-based interface for generating common computational chemistry workflows.
 It wraps the input generation functionality of CCBatchMan to make setting up calculations easier.
 """
-from . import input_combi
+import input_combi
 import os
 import sys
 import copy

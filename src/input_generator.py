@@ -2,8 +2,8 @@ import os
 import re
 import shutil
 import json
-from . import helpers
-from . import format_conversion
+import helpers
+import format_conversion
 
 config_relpath = '../config/input_generator_config/'
 src_dir = os.path.dirname(os.path.abspath(__file__))

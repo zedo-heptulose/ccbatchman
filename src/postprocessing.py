@@ -3,7 +3,7 @@ import os
 import re
 import numpy
 import pandas
-from . import file_parser
+import file_parser
 
 rule_relpath = '../config/file_parser_config/'
 src_dir = os.path.dirname(os.path.abspath(__file__))

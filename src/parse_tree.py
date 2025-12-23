@@ -4,8 +4,8 @@ import json
 import numpy as np
 import pandas as pd
 import copy
-from . import postprocessing
-from . import file_parser
+import postprocessing
+import file_parser
 
 ORCARULES = '../config/file_parser_config/orca_rules.dat'
 GAUSSIANRULES = "../config/file_parser_config/gaussian_rules.dat"

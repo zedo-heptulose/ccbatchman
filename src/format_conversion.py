@@ -3,10 +3,10 @@ path = '/gpfs/home/gdb20/code/mol-maker/src'
 if not path in sys.path:
     sys.path.append(path)
 
-from . import input_generator
-from . import input_combi
-from . import cc_workflow_generator as ccwg
-from . import file_parser
+import input_generator
+import input_combi
+import cc_workflow_generator as ccwg
+import file_parser
 
 import os
 import json
