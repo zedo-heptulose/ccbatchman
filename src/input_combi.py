@@ -1,6 +1,6 @@
-import helpers
-import input_generator
-import job_harness
+from . import helpers
+from . import input_generator
+from . import job_harness
 import itertools
 import os
 import re

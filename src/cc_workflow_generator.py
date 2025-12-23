@@ -1,10 +1,10 @@
 """
 CCBatchMan Workflow Generator
-
+(this particular file generated with Claude 3.7 Sonnet for the most part)
 This module provides a class-based interface for generating common computational chemistry workflows.
 It wraps the input generation functionality of CCBatchMan to make setting up calculations easier.
 """
-import input_combi
+from . import input_combi
 import os
 import sys
 import copy
@@ -45,6 +45,7 @@ DEFAULT_ORCA_ROKS_CONFIG = {
     "program": "ORCA",
     "integration_grid": "DefGrid3",
     "scf_tolerance": "TightSCF",
+    "uks": False,  # ROKS is restricted, don't add UKS keyword
     "other_keywords": ["ROKS"],
 }
 
@@ -52,7 +53,7 @@ DEFAULT_ORCA_SF_TDDFT_SP_CONFIG = {
     "program": "ORCA",
     "integration_grid": "DefGrid3",
     "scf_tolerance": "TightSCF",
-    "other_keywords": ["UKS"],
+    "uks": True,  # SF-TDDFT requires UKS reference
     "blocks": {
         "scf": ["MaxIter 0"],  # Don't iterate SCF, use ROKS orbitals
         "tddft": ["SF true", "NRoots 6", "TDA true"],
@@ -1071,9 +1072,40 @@ class WorkflowGenerator:
         """
         optfreq_program = optfreq_program if optfreq_program else program
         sp_program = sp_program if sp_program else program
-        
+
+        # Auto-add mix_guess/broken_symmetry for UKS singlet states in diradical calculations
+        # Gaussian uses mix_guess (Guess=Mix), ORCA uses broken_symmetry (brokensym 1,1)
+        programs_used = [optfreq_program, sp_program, nics_program, aicd_program]
+        uses_gaussian = any(p.upper() == "GAUSSIAN" for p in programs_used)
+        uses_orca = any(p.upper() == "ORCA" for p in programs_used)
+
+        # TODO: Support mixed ORCA/Gaussian workflows by setting flags per-step rather than per-CM-state
+        if uses_gaussian and uses_orca:
+            raise ValueError(
+                "create_diradical_workflow() does not yet support mixing ORCA and Gaussian. "
+                "Use one program for all steps, or build the workflow manually with add_*_step() methods."
+            )
+
+        def _add_singlet_flags_to_cm_states(states_dict):
+            for alias, settings in states_dict.items():
+                if isinstance(settings, dict) and 'spin_multiplicity' in settings:
+                    if settings.get('uks', False) and settings.get('spin_multiplicity') == 1:
+                        if uses_gaussian:
+                            settings['mix_guess'] = True
+                        elif uses_orca:
+                            settings['broken_symmetry'] = True
+
+        for key, value in self.cm_states.items():
+            if isinstance(value, dict):
+                if 'spin_multiplicity' in value:
+                    # Flat structure: cm_states = {'0_1': {...}, '0_3': {...}}
+                    _add_singlet_flags_to_cm_states(self.cm_states)
+                    break
+                else:
+                    # Grouped structure: cm_states = {'group_name': {'0_1': {...}, ...}}
+                    _add_singlet_flags_to_cm_states(value)
+
         # Add CREST if requested
-        
         if do_crest:
             self.add_crest_step("crest", crest_overrides)
             coords_source = "crest"

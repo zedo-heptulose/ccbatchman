@@ -1,8 +1,9 @@
 import json
 import copy
 
-import input_generator
-import job_harness
+from . import input_generator
+from . import job_harness
+from . import file_parser
 
 def merge_dicts(_d1, _d2):
     d1 = copy.deepcopy(_d1)

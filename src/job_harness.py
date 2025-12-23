@@ -1,6 +1,5 @@
-import file_parser
-
-import postprocessing
+from . import file_parser
+from . import postprocessing
 
 import os
 import re

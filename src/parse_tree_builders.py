@@ -1,4 +1,4 @@
-import parse_tree
+from . import parse_tree
 import os
 
 class SimpleETreeBuilder:

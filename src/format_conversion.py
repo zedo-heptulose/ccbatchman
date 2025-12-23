@@ -2,15 +2,11 @@ import sys
 path = '/gpfs/home/gdb20/code/mol-maker/src'
 if not path in sys.path:
     sys.path.append(path)
-    
-path = '/gpfs/home/gdb20/code/ccbatchman/src'
-if not path in sys.path:
-    sys.path.append(path)
 
-import input_generator
-import input_combi
-import cc_workflow_generator as ccwg
-import file_parser
+from . import input_generator
+from . import input_combi
+from . import cc_workflow_generator as ccwg
+from . import file_parser
 
 import os
 import json

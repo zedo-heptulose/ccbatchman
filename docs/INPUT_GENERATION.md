@@ -121,6 +121,7 @@ wg.add_cm_states([
 | `mix_guess` | bool | Add Gaussian `Guess=Mix` keyword |
 
 **Important:** `broken_symmetry` and `mix_guess` are mutually exclusive - they serve similar purposes for different programs.
+**Important:** `broken_symmetry` should be used with multiplicity = 3 for singlet state.
 
 ### Adding Calculation Steps
 
@@ -240,7 +241,7 @@ wg.create_diradical_workflow(
 )
 ```
 
-**Note:** This method applies overrides uniformly to all states. For state-specific settings (e.g., `Guess=Mix` only for singlets), build the workflow manually using individual `add_*_step()` methods.
+~~**Note:** This method applies overrides uniformly to all states. For state-specific settings (e.g., `Guess=Mix` only for singlets), build the workflow manually using individual `add_*_step()` methods.~~
 
 ### Running the Workflow
 
@@ -414,6 +415,8 @@ configs = [
 ]
 # Generates: gas_0_1_mol1_opt, gas_0_1_mol1_sp, gas_0_1_mol2_opt, ...
 ```
+
+**Note:** settings found in dicts later in the list will override settings found earlier.
 
 ### Special Flags
 
