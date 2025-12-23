@@ -76,10 +76,19 @@ class JobHarness:
 
     #this will make things more robust. On startup, we check for this...
     def get_id(self):
+        if os.path.exists(os.path.join(self.directory,'run_info.json')):
+            with open ('run_info.json','r') as json_file:
+                data = json.load(json_file)
+            if 'job_id' in data.keys():
+                temp_id = data['job_id']
+        else:
+            temp_id = -1
+        
         files = os.listdir(self.directory)
         pattern = '(?:slurm-)(\d+)(?:\.out)'
         id_list = [file for file in files if re.match(pattern,file)]
         id_list = [int(re.match(pattern,file).group(1)) for file in id_list]
+        id_list.append(temp_id)
         max_id = -1
         if len(id_list) != 0:
             max_id = max(id_list)
