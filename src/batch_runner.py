@@ -622,6 +622,8 @@ class BatchRunner:
             job.update_status(slurm_cache=slurm_cache)
             self.ledger.loc[i, 'job_id'] = job.job_id
             self.ledger.loc[i, 'job_status'] = job.status
+            # Persist updated status to run_info.json
+            job.write_json()
             if job.status == 'failed':
                 self.flag_broken_dependencies()
             del job
