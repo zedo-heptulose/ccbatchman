@@ -8,6 +8,28 @@ import json
 import input_generator
 
 
+def merge_keywords(original, restart_keywords, conflicts):
+    """Merge original keywords with restart keywords, filtering conflicts.
+    
+    Args:
+        original: Original other_keywords list from job_config.json
+        restart_keywords: Keywords to add for restart
+        conflicts: Keyword prefixes to filter from original (e.g., ['geom='])
+    
+    Returns:
+        tuple: (merged_keywords, filtered_keywords)
+    """
+    original = original or []
+    filtered = []
+    kept = []
+    for kw in original:
+        if any(kw.lower().startswith(c.lower()) for c in conflicts):
+            filtered.append(kw)
+        else:
+            kept.append(kw)
+    return kept + restart_keywords, filtered
+
+
 def run_command(command, workdir):
     result = subprocess.run(command, shell=True, cwd=workdir,
                              capture_output=True, text=True)
@@ -305,28 +327,36 @@ def create_handle_fail(ledger_path):
             rewrite_job(row,override_configs,ledger_path)
         elif is_gaussian and is_imaginary_freq:
             print('Gaussian imaginary frequency')
+            original_keywords = old_config.get('other_keywords', []) or []
+            merged, filtered = merge_keywords(original_keywords, ['geom=allcheck'], ['geom='])
+            if filtered:
+                print(f"  Filtered conflicting keywords: {filtered}")
+                with open(os.path.join(directory, 'RESTART_WARNING.txt'), 'w') as f:
+                    f.write(f"Restart due to: imaginary frequency\n")
+                    f.write(f"Filtered keywords: {filtered}\n")
+                    f.write(f"Added keywords: ['geom=allcheck']\n")
             override_configs = {
-            'xyz_file' : None,
-            # CHECK COORD REPLACEMENT ISSUE
-            'other_keywords' : [
-                    'geom=checkpoint',
-                    'int=ultrafine nosymm'
-                ],
+                'xyz_file': None,
+                'other_keywords': merged,
             }
-            rewrite_job(row,override_configs,ledger_path)
+            rewrite_job(row, override_configs, ledger_path)
         elif is_gaussian and is_bad_stationary_point: 
             print('Gaussian bad stationary point')
+            original_keywords = old_config.get('other_keywords', []) or []
+            merged, filtered = merge_keywords(original_keywords, ['geom=allcheck'], ['geom='])
+            if filtered:
+                print(f"  Filtered conflicting keywords: {filtered}")
+                with open(os.path.join(directory, 'RESTART_WARNING.txt'), 'w') as f:
+                    f.write(f"Restart due to: bad stationary point\n")
+                    f.write(f"Filtered keywords: {filtered}\n")
+                    f.write(f"Added keywords: ['geom=allcheck']\n")
             override_configs = {
-            'xyz_file' : None,
-            'run_type' : old_config['run_type'].lower().replace('opt','opt=readfc'),
-            'broken_symmetry' : False, # currently, this corresponds to GUESS=MIX in Gaussian, need to get rid of guess setting
-            # CHECK COORD REPLACEMENT ISSUE
-            'other_keywords' : [
-                    'geom=allcheck guess=read',
-                    'int=ultrafine nosymm',
-                ],
+                'xyz_file': None,
+                'run_type': old_config['run_type'].lower().replace('opt', 'opt=readfc'),
+                'broken_symmetry': False,  # currently, this corresponds to GUESS=MIX in Gaussian
+                'other_keywords': merged,
             }
-            rewrite_job(row,override_configs,ledger_path)
+            rewrite_job(row, override_configs, ledger_path)
             
         # bad hack solution, should be getting old settings and using whatever's there
         # can't do this multiple times
