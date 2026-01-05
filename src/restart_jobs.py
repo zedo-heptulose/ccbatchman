@@ -337,7 +337,7 @@ def create_handle_fail(ledger_path):
                     f.write(f"Added keywords: ['geom=allcheck']\n")
             override_configs = {
                 'xyz_file': None,
-                'mix_guess': False,  # Don't re-mix orbitals on restart, use checkpoint orbitals
+                # Don't override mix_guess - keep original setting (True for singlets, False for triplets)
                 'other_keywords': merged,
             }
             rewrite_job(row, override_configs, ledger_path)
@@ -354,7 +354,7 @@ def create_handle_fail(ledger_path):
             override_configs = {
                 'xyz_file': None,
                 'run_type': old_config['run_type'].lower().replace('opt', 'opt=readfc'),
-                'mix_guess': False,  # Don't re-mix orbitals on restart, use checkpoint orbitals
+                # Don't override mix_guess - keep original setting (True for singlets, False for triplets)
                 'other_keywords': merged,
             }
             rewrite_job(row, override_configs, ledger_path)
