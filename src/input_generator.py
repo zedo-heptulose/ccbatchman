@@ -942,11 +942,15 @@ class pyAromaInputBuilder(InputBuilder):
 
     #TODO: rename this json loader function, this is kinda dumb
 class BatchRunnerInputBuilder(InputBuilder):
+    # Compute batch_runner.py path relative to this file at module load time
+    _BATCH_RUNNER_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'batch_runner.py')
+    
     def __init__(self):
         self.config = helpers.load_config_from_file(os.path.join(CONFIGPATH,BATCHRUNNERCONFIG))
 
     def submit_line(self):
-        command = self.config['path_to_program']
+        # Use runtime-computed path instead of config file path
+        command = self._BATCH_RUNNER_PATH
         job_basename = self.config['job_basename']
         max_jobs = self.config['max_jobs']
         verbose = self.config['verbosity']

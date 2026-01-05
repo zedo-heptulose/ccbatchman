@@ -1,7 +1,6 @@
 {
   "program" : "batch_runner",
   "version" : "0.1",
-  "path_to_program" : "~/code/ccbatchman/src/batch_runner.py",
   "pre_submit_lines" : [
 	  "conda init bash",
 	  "source ~/.bashrc",

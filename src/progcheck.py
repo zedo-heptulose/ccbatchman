@@ -1,24 +1,21 @@
 import os
 import pandas as pd
 import numpy
-
-import sys
-path1 = '/gpfs/home/gdb20/code/ccbatchman/src/'
-path2 = '/gpfs/home/gdb20/code/data-processor/'
-paths = [path1,path2]
-for path in paths:
-    if path not in sys.path:
-        sys.path.append(path)
-import input_combi
-import helpers
-import os
 import re
-import file_parser
 import subprocess
-import pandas as pd
-import numpy
 import matplotlib.pyplot as plt
 import json
+
+import input_combi
+import helpers
+import file_parser
+
+# Paths relative to this file's location
+_THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+_CCBATCHMAN_ROOT = os.path.dirname(_THIS_DIR)
+_CONFIG_DIR = os.path.join(_CCBATCHMAN_ROOT, 'config', 'file_parser_config')
+ORCA_RULES_PATH = os.path.join(_CONFIG_DIR, 'orca_rules.dat')
+GAUSSIAN_RULES_PATH = os.path.join(_CONFIG_DIR, 'gaussian_rules.dat')
 
 """
 Fail output
@@ -138,7 +135,7 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
             # ORCA output
             output = file_parser.extract_data(
                 out_path, 
-                '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/orca_rules.dat'
+                ORCA_RULES_PATH
             )
         else:
             # Gaussian output
@@ -146,7 +143,7 @@ def categorize_errors(data: pd.DataFrame, working_path: str) -> pd.DataFrame:
             if os.path.exists(out_path):
                 output = file_parser.extract_data(
                     out_path, 
-                    '/gpfs/home/gdb20/code/ccbatchman/config/file_parser_config/gaussian_rules.dat'
+                    GAUSSIAN_RULES_PATH
                 )
             else:
                 # No output file found
