@@ -8,8 +8,15 @@ import json
 import input_generator
 
 
+# TODO: Currently merge_keywords only filters other_keywords. Ideally, all keyword
+# sources (other_keywords, mix_guess, etc.) should be collected into a single list,
+# filtered for conflicts, then redistributed. For now this works because we don't
+# add conflicting keywords like guess=read anymore - we just use geom=allcheck.
+
 def merge_keywords(original, restart_keywords, conflicts):
     """Merge original keywords with restart keywords, filtering conflicts.
+    
+    Note: This only handles other_keywords. See TODO above for full solution.
     
     Args:
         original: Original other_keywords list from job_config.json
