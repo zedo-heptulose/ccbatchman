@@ -76,12 +76,16 @@ class JobHarness:
 
     #this will make things more robust. On startup, we check for this...
     def get_id(self):
+        import math
         run_info_path = os.path.join(self.directory, 'run_info.json')
         if os.path.exists(run_info_path):
             with open(run_info_path, 'r') as json_file:
                 data = json.load(json_file)
             if 'job_id' in data.keys():
                 temp_id = data['job_id']
+                # Sanitize: NaN or None from old buggy runs should be -1
+                if temp_id is None or (isinstance(temp_id, float) and math.isnan(temp_id)):
+                    temp_id = -1
             else:
                 temp_id = -1
         else:
