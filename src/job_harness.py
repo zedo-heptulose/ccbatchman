@@ -95,8 +95,7 @@ class JobHarness:
         max_id = -1
         if len(id_list) != 0:
             max_id = max(id_list)
-        if max_id != -1:
-            self.job_id = max_id
+        self.job_id = max_id
 
 
     #all that's required is a simple update_status here...
